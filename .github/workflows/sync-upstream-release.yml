@@ -1,8 +1,13 @@
 name: Sync Upstream Release
 
 on:
+  # Every 6 hours. Deliberately not more frequent: upstream Dolphin releases roughly
+  # monthly, GitHub heavily throttles scheduled workflows on public repos anyway (a
+  # */30 cron was observed actually firing about every 2h20m), and every tick during a
+  # GitHub Actions outage produces a failed-run notification for a check that would
+  # have exited in seconds with "nothing to do".
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 # Only one run of this workflow at a time. A new trigger queues instead of running
