@@ -2,6 +2,11 @@ name: Sync And Build
 permissions: write-all
 
 on:
+  # Every 6 hours. Deliberately not more frequent: upstream Dolphin releases roughly
+  # monthly, GitHub heavily throttles scheduled workflows on public repos anyway (a
+  # */30 cron was observed actually firing about every 2h20m), and every tick during a
+  # GitHub Actions outage produces a failed-run notification for a check that would
+  # have exited in seconds with "nothing to do".
   schedule:
     - cron: '0 1/2 * * *'
   workflow_dispatch:
@@ -26,7 +31,7 @@ jobs:
         run: |
           LATEST_PR=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls?state=closed&per_page=50" \
             | jq -r '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | last | .number')
-          
+
           if [ -z "$LATEST_PR" ] || [ "$LATEST_PR" = "null" ]; then
             echo "No recently merged PRs found in the fetched batch"
             exit 1
@@ -287,7 +292,7 @@ jobs:
             $SUFFIX = "-manual"
           }
           $FILE_NAME = "Dolphin-Extra${SUFFIX}-x86_64-Windows.zip"
-          
+
           New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
           Set-Location -Path ".\Binary\x64\"
           attrib +r Sys\*.* /s 2>$null
@@ -400,7 +405,7 @@ jobs:
 
           NEXT_VER_CODE=$(printf "%s%04d" "$YEAR" "$BUILD_COUNT")
           echo "NEXT_VER_CODE=$NEXT_VER_CODE" >> "$GITHUB_OUTPUT"
-        env: 
+        env:
           GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
       - name: Upload to release (Archive)

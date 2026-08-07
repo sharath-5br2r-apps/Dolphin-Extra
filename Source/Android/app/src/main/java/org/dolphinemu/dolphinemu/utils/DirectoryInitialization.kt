@@ -448,17 +448,40 @@ object DirectoryInitialization {
         return true
     }
 
-    // Dolphin.ini keys that store filesystem paths and can end up stale after a storage
-    // location change — either copied verbatim (clean migration) or already present in a
-    // pre-existing folder the user chose to keep. ISOPath0, ISOPath1, ... are handled separately
-    // since they're a numbered array rather than a fixed key.
-    private val TRACKED_STRING_PATHS = mapOf(
-        "Core" to setOf("DefaultISO"),
-        "General" to setOf(
-            "DumpPath", "LoadPath", "ResourcePackPath", "NANDRootPath",
-            "WiiSDCardPath", "WiiSDCardSyncFolder", "WFSPath"
+    // Config files, and the keys within them that store filesystem paths which can end up stale
+    // after a storage location change — either copied verbatim (clean migration) or already
+    // present in a pre-existing folder the user chose to keep.
+    //
+    // Anything left out here silently keeps pointing at the old location after a migration. Since
+    // the migration deletes the source, that means the setting resolves to a path that no longer
+    // exists. Dolphin only falls back to a dynamic, user-directory-relative default when the value
+    // is *empty* (see MainSettings.cpp GetMemcardPath) — a non-empty stale path is used verbatim
+    // and just fails to open, which is how missing memory card / GCI folder entries here showed up
+    // as "Failed to open file at ... for writing".
+    //
+    // ISOPath0, ISOPath1, ... are handled separately since they're a numbered array, not a fixed key.
+    private val TRACKED_PATHS_BY_FILE = mapOf(
+        "Dolphin.ini" to mapOf(
+            "Core" to setOf(
+                "DefaultISO",
+                // GameCube memory cards and GCI save folders. Empty by default on Android (the UI
+                // doesn't expose them), but populated by configs carried over from desktop Dolphin
+                // or edited by hand — and losing these loses access to GC saves.
+                "MemcardAPath", "MemcardBPath",
+                "GCIFolderAPath", "GCIFolderBPath",
+                "GCIFolderAPathOverride", "GCIFolderBPathOverride",
+                "AgpCartAPath", "AgpCartBPath"
+            ),
+            "General" to setOf(
+                "DumpPath", "LoadPath", "ResourcePackPath", "NANDRootPath",
+                "WiiSDCardPath", "WiiSDCardSyncFolder", "WFSPath",
+                "SkylandersCollectionPath"
+            ),
+            "GBA" to setOf("BIOS", "GBPlayerRom", "SavesPath")
         ),
-        "GBA" to setOf("BIOS", "GBPlayerRom", "SavesPath")
+        "GFX.ini" to mapOf(
+            "Settings" to setOf("DumpPath")
+        )
     )
     private val ISO_PATH_KEY = Regex("ISOPath\\d+")
 
@@ -510,9 +533,10 @@ object DirectoryInitialization {
     }
 
     /**
-     * Rewrites path-like settings in Dolphin.ini that still point at [sourceRoot] (the previous
-     * user directory) so they resolve under the current [userPath] instead. Values that don't
-     * fall under [sourceRoot] are left untouched, since they were deliberately pointed elsewhere.
+     * Rewrites path-like settings in the config files that still point at [sourceRoot] (the
+     * previous user directory) so they resolve under the current [userPath] instead. Values that
+     * don't fall under [sourceRoot] are left untouched, since they were deliberately pointed
+     * elsewhere.
      *
      * content:// values are handled separately (see [decodeContentUriIfStillReal]) and don't
      * need to match [sourceRoot] at all — game folders, GBA BIOS, etc. are picked independently
@@ -521,7 +545,18 @@ object DirectoryInitialization {
      * regardless of how many storage-mode switches or app reinstalls have happened since.
      */
     private fun patchStalePaths(context: Context, sourceRoot: File) {
-        val iniFile = File(userPath, "Config" + File.separator + "Dolphin.ini")
+        for ((fileName, trackedSections) in TRACKED_PATHS_BY_FILE) {
+            patchStalePathsInFile(context, sourceRoot, fileName, trackedSections)
+        }
+    }
+
+    private fun patchStalePathsInFile(
+        context: Context,
+        sourceRoot: File,
+        fileName: String,
+        trackedSections: Map<String, Set<String>>
+    ) {
+        val iniFile = File(userPath, "Config" + File.separator + fileName)
         if (!iniFile.exists()) return
 
         val sourceRootAbs = sourceRoot.absolutePath
@@ -529,7 +564,7 @@ object DirectoryInitialization {
         val lines = try {
             iniFile.readLines()
         } catch (e: IOException) {
-            Log.error("[DirectoryInitialization] Failed to read Dolphin.ini for path fixup: ${e.message}")
+            Log.error("[DirectoryInitialization] Failed to read $fileName for path fixup: ${e.message}")
             return
         }
 
@@ -550,12 +585,15 @@ object DirectoryInitialization {
             val value = line.substring(eq + 1).trim()
             if (value.isEmpty()) return@map line
 
-            val isTracked = (currentSection == "General" && ISO_PATH_KEY.matches(key)) ||
-                TRACKED_STRING_PATHS[currentSection]?.contains(key) == true
+            // ISOPath* only exists in Dolphin.ini's [General]; the guard keeps it from matching
+            // a same-named section in another config file.
+            val isTracked = (fileName == "Dolphin.ini" && currentSection == "General" &&
+                ISO_PATH_KEY.matches(key)) ||
+                trackedSections[currentSection]?.contains(key) == true
             if (!isTracked) return@map line
 
             val rewritten = rewriteStalePath(context, value, sourceRootAbs) ?: return@map line
-            Log.info("[CustomLocation] patchStalePaths: [$currentSection] $key: $value -> $rewritten")
+            Log.info("[CustomLocation] patchStalePaths: $fileName [$currentSection] $key: $value -> $rewritten")
             changed = true
             "$key = $rewritten"
         }
@@ -564,7 +602,7 @@ object DirectoryInitialization {
             try {
                 iniFile.writeText(newLines.joinToString("\n") + "\n")
             } catch (e: IOException) {
-                Log.error("[DirectoryInitialization] Failed to rewrite stale paths: ${e.message}")
+                Log.error("[DirectoryInitialization] Failed to rewrite stale paths in $fileName: ${e.message}")
             }
         }
     }
