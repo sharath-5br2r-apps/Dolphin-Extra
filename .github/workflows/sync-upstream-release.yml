@@ -63,7 +63,7 @@ jobs:
   # ==========================================
   sync:
     needs: check
-    if: ${{ github.event_name == 'schedule' && needs.check.outputs.should_run == 'true' }}
+    if: ${{ needs.check.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout feature branch
@@ -78,12 +78,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Clean existing release-sync branch
+        run: |
+          git branch -D release-sync 2>/dev/null || true
+          git push origin --delete release-sync 2>/dev/null || true
+
       - name: Fetch upstream PR branch
         run: |
           git remote add upstream https://github.com/dolphin-emu/dolphin.git
           git fetch upstream "pull/${{ needs.check.outputs.pr_number }}/head:upstream-pr-${{ needs.check.outputs.pr_number }}" --quiet
 
-      - name: Create release-sync branch from latest feature work
+      - name: Create fresh release-sync branch from latest feature work
         run: git checkout -B release-sync master
 
       - name: Merge upstream PR branch
@@ -103,7 +108,7 @@ jobs:
       - name: Report merge conflict
         if: steps.merge.outputs.conflict == 'true'
         run: |
-          echo "Automatic merge of upstream PR '#${{ needs.check.outputs.pr_number }}' produced conflicts 💥"
+          echo "Automatic merge of upstream PR '#${{ needs.check.outputs.pr_number }}' produced conflicts"
           exit 1
 
       - name: Update submodules
@@ -116,7 +121,7 @@ jobs:
         continue-on-error: true
         run: |
           git tag "sync/pr-${{ needs.check.outputs.pr_number }}"
-          git push origin "sync/pr-${{ needs.check.outputs.pr_number }}" 🏷️
+          git push origin "sync/pr-${{ needs.check.outputs.pr_number }}"
 
 
   # ==========================================
@@ -124,21 +129,21 @@ jobs:
   # ==========================================
   android:
     needs: [check, sync]
-    if: always() && (github.event_name == 'workflow_dispatch' || needs.sync.result == 'success')
+    if: always() && needs.sync.result == 'success'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - flavor: stock
-            task: assembleStockRelease
+            task: ":app:assembleStockRelease"
           - flavor: gfp
-            task: assembleGfpRelease
+            task: ":app:assembleGfpRelease"
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
     steps:
-      - name: Checkout merged release-sync branch
+      - name: Checkout release-sync branch
         uses: actions/checkout@v4
         with:
           ref: release-sync
@@ -160,7 +165,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install NDK
-        run: sdkmanager "ndk;29.0.14206865"
+        run: sdkmanager "ndk;30.0.15729638"
 
       - name: Cache CMake build output
         uses: actions/cache@v4
@@ -176,31 +181,39 @@ jobs:
         working-directory: Source/Android
         run: |
           PR_NUM="${{ needs.check.outputs.pr_number }}"
-          SUFFIX="${PR_NUM:+-vpr$PR_NUM}"
-
-          TASK="${{ matrix.task }}"
-          APK_PATH="app/build/outputs/apk/${{ matrix.flavor }}/release/app-${{ matrix.flavor }}-release.apk"
-          if [[ "${{ matrix.flavor }}" == "gfp" ]] && ! ./gradlew -q tasks --all --no-daemon | grep -q "assembleGfpRelease"; then
-            TASK="assembleRelease"
-            APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          if [ -n "$PR_NUM" ]; then
+            SUFFIX="-vpr$PR_NUM"
+          else
+            SUFFIX="-manual"
           fi
 
-          ./gradlew "$TASK" --no-daemon \
+          chmod +x gradlew
+
+          echo "Executing Gradle task: ${{ matrix.task }}"
+
+          ./gradlew ${{ matrix.task }} --no-daemon \
             -Pkeystore="$RUNNER_TEMP/dolphincs-release.p12" \
             -Pstorepass="${{ secrets.KEYSTORE_PASS }}" \
             -Pkeyalias="${{ secrets.KEYSTORE_ALIAS }}" \
             -Pkeypass="${{ secrets.KEYSTORE_PASS }}"
 
-          if [[ ! -f "$APK_PATH" ]]; then
-            echo "Expected APK not found at $APK_PATH"
-            find app/build/outputs/apk -maxdepth 4 -type f -name "*.apk" -print
-            exit 1
+          mkdir -p ../../artifact
+
+          FOUND_APK=$(find app/build/outputs/apk/${{ matrix.flavor }}/release -type f -name "*.apk" ! -name "*unaligned*" | head -n 1)
+
+          if [ -z "$FOUND_APK" ]; then
+            FOUND_APK=$(find app/build/outputs/apk -type f -name "*.apk" ! -name "*unaligned*" | grep -i "${{ matrix.flavor }}" | head -n 1)
           fi
 
-          mkdir -p ../../artifact
-          mv "$APK_PATH" "../../artifact/Dolphin-Extra-${{ matrix.flavor }}${SUFFIX}-android-all.apk"
+          if [ -n "$FOUND_APK" ]; then
+            echo "Found APK at: $FOUND_APK"
+            mv "$FOUND_APK" "../../artifact/Dolphin-Extra-${{ matrix.flavor }}${SUFFIX}-android-all.apk"
+          else
+            echo "Failed to locate APK for flavor '${{ matrix.flavor }}'!"
+            exit 1
+          fi
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/29.0.14206865
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/30.0.15729638
 
       - name: Remove decoded keystore
         if: always()
@@ -219,13 +232,13 @@ jobs:
   # ==========================================
   windows:
     needs: [check, sync]
-    if: always() && (github.event_name == 'workflow_dispatch' || needs.sync.result == 'success')
+    if: always() && needs.sync.result == 'success'
     runs-on: windows-2022
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
     steps:
-      - name: Checkout merged release-sync branch
+      - name: Checkout release-sync branch
         uses: actions/checkout@v4
         with:
           ref: release-sync
@@ -264,19 +277,23 @@ jobs:
           echo "Download and install this: https://aka.ms/vs/17/release/vc_redist.x64.exe" > .\FIX-VCRUNTIME140-ERROR.txt
 
       - name: "Package Windows Dolphin"
-        shell: bash
+        shell: powershell
         working-directory: ${{ github.workspace }}
         run: |
-          PR_NUM="${{ needs.check.outputs.pr_number }}"
-          SUFFIX="${PR_NUM:+-vpr$PR_NUM}"
-          FILE_NAME="Dolphin-Extra${SUFFIX}-x86_64-Windows.zip"
+          $PR_NUM = "${{ needs.check.outputs.pr_number }}"
+          if ($PR_NUM) {
+            $SUFFIX = "-vpr$PR_NUM"
+          } else {
+            $SUFFIX = "-manual"
+          }
+          $FILE_NAME = "Dolphin-Extra${SUFFIX}-x86_64-Windows.zip"
           
-          mkdir -p artifact
-          cd .\Binary\x64\
-          attrib +r Sys\*.* /s || true
+          New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
+          Set-Location -Path ".\Binary\x64\"
+          attrib +r Sys\*.* /s 2>$null
           fsutil file createnew portable.txt 0
           7z a "$FILE_NAME" .\*
-          mv "$FILE_NAME" ../../artifact/
+          Move-Item -Path "$FILE_NAME" -Destination "..\..\artifact\" -Force
 
       - name: "Upload Artifact"
         uses: actions/upload-artifact@v4
@@ -291,13 +308,13 @@ jobs:
   # ==========================================
   linux:
     needs: [check, sync]
-    if: always() && (github.event_name == 'workflow_dispatch' || needs.sync.result == 'success')
+    if: always() && needs.sync.result == 'success'
     runs-on: ubuntu-latest
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
     steps:
-      - name: Checkout merged release-sync branch
+      - name: Checkout release-sync branch
         uses: actions/checkout@v4
         with:
           ref: release-sync
@@ -331,7 +348,11 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           PR_NUM="${{ needs.check.outputs.pr_number }}"
-          SUFFIX="${PR_NUM:+-vpr$PR_NUM}"
+          if [ -n "$PR_NUM" ]; then
+            SUFFIX="-vpr$PR_NUM"
+          else
+            SUFFIX="-manual"
+          fi
           FILE_NAME="Dolphin-Extra${SUFFIX}-x86_64-Linux.zip"
 
           mkdir -p artifact
@@ -406,5 +427,5 @@ jobs:
             Built from custom release-sync branch, merged with the
             custom user data storage location feature (Scoped Storage / Internal Storage / SD Card) and Games on Wii Menu Patch
 
-            This is an unofficial community build, not affiliated with the Dolphin team. 🎉
+            This is an unofficial community build, not affiliated with the Dolphin team.
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}

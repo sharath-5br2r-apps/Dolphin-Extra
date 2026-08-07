@@ -551,7 +551,7 @@ if (WIN32)
 
   set_target_properties(dolphin-emu PROPERTIES
     DEBUG_POSTFIX    D
-    OUTPUT_NAME      BetterWiiMenuDE
+    OUTPUT_NAME      Dolphin
     WIN32_EXECUTABLE TRUE
   )
   # Delegate to Qt's official deployment binary on Windows to copy over the necessary Qt-specific libraries, etc.
