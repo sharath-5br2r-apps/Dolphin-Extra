@@ -189,7 +189,7 @@ jobs:
           if [ -n "$PR_NUM" ]; then
             SUFFIX="-vpr$PR_NUM"
           else
-            SUFFIX="-manual"
+            SUFFIX="-vmanual"
           fi
 
           chmod +x gradlew
@@ -212,7 +212,7 @@ jobs:
 
           if [ -n "$FOUND_APK" ]; then
             echo "Found APK at: $FOUND_APK"
-            mv "$FOUND_APK" "../../artifact/Dolphin-Extra-${{ matrix.flavor }}${SUFFIX}-android-all.apk"
+            mv "$FOUND_APK" "../../artifact/Dolphin-Extra-Android-${{ matrix.flavor }}${SUFFIX}-all.apk"
           else
             echo "Failed to locate APK for flavor '${{ matrix.flavor }}'!"
             exit 1
@@ -289,9 +289,9 @@ jobs:
           if ($PR_NUM) {
             $SUFFIX = "-vpr$PR_NUM"
           } else {
-            $SUFFIX = "-manual"
+            $SUFFIX = "-vmanual"
           }
-          $FILE_NAME = "Dolphin-Extra${SUFFIX}-x86_64-Windows.zip"
+          $FILE_NAME = "Dolphin-Extra-Windows${SUFFIX}-x86_64.zip"
 
           New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
           Set-Location -Path ".\Binary\x64\"
@@ -356,9 +356,9 @@ jobs:
           if [ -n "$PR_NUM" ]; then
             SUFFIX="-vpr$PR_NUM"
           else
-            SUFFIX="-manual"
+            SUFFIX="-vmanual"
           fi
-          FILE_NAME="Dolphin-Extra${SUFFIX}-x86_64-Linux.zip"
+          FILE_NAME="Dolphin-Extra-Linux${SUFFIX}-x86_64.zip"
 
           mkdir -p artifact
           cd build/Binaries
