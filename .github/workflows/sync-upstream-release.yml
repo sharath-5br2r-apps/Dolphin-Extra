@@ -212,7 +212,7 @@ jobs:
 
           if [ -n "$FOUND_APK" ]; then
             echo "Found APK at: $FOUND_APK"
-            mv "$FOUND_APK" "../../artifact/Dolphin-Extra-Android-${{ matrix.flavor }}${SUFFIX}-all.apk"
+            mv "$FOUND_APK" "../../artifact/dolphin-extra-android-${{ matrix.flavor }}${SUFFIX}-all.apk"
           else
             echo "Failed to locate APK for flavor '${{ matrix.flavor }}'!"
             exit 1
@@ -291,7 +291,7 @@ jobs:
           } else {
             $SUFFIX = "-vmanual"
           }
-          $FILE_NAME = "Dolphin-Extra-Windows${SUFFIX}-x86_64.zip"
+          $FILE_NAME = "dolphin-extra-windows${SUFFIX}-x86_64.zip"
 
           New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
           Set-Location -Path ".\Binary\x64\"
@@ -357,7 +357,7 @@ jobs:
           else
             SUFFIX="-vmanual"
           fi
-          FILE_NAME="Dolphin-Extra-Linux${SUFFIX}-x86_64.zip"
+          FILE_NAME="folphin-extra-linux${SUFFIX}-x86_64.zip"
 
           mkdir -p artifact
           cd build/Binaries
