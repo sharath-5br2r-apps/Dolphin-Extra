@@ -346,7 +346,6 @@ jobs:
         run: |
           cd build
           ninja dolphin-emu
-          cp -r ../Data/Sys/ Binaries/
           touch Binaries/portable.txt
 
       - name: "Package Linux Dolphin"
