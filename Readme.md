@@ -1,6 +1,14 @@
 ## Dolphin Extra
-Dolphin Extra incorporates aspects of [DolphinCS](https://github.com/JoeysRetroHandhelds/DolphinCS) and [Better Wii Menu DE](https://github.com/Gavin-S-Dev/Better-Wii-Menu-DE) but instead syncs to pull requests. All branding is removed and the apk is spoofed to Game for Peace`com.tencent.tmgp.pubgmhd`  for performance.
-Better Wii Menu DE is also ported to Android using AI.
+Dolphin Extra incorporates aspects of [DolphinCS](https://github.com/JoeysRetroHandhelds/DolphinCS) and [Better Wii Menu DE](https://github.com/Gavin-S-Dev/Better-Wii-Menu-DE) but instead syncs to pull requests. All branding is removed and the apk is optionally spoofed to Game for Peace`com.tencent.tmgp.pubgmhd`  for performance.
+Additionally Linux and Windows builds of Dolphin Extra is also available.
+Better Wii Menu DE is also ported to Android using AI to replicate the behaviour in Qt UI.
+
+## Releases
+
+Releases are built here automatically whenever Dolphin merges a PR into master. This fork
+tracks upstream Dolphin's PR in form of virtual tags, not commits or release tags. See
+[Releases page](../../releases) for builds. It is also visible in my [catalog](https://sharath-5br2r.github.io/catalog) of all projects
+with more clarity and Obtainium Instructions for Android.
 
 ## Original Readmes
 
