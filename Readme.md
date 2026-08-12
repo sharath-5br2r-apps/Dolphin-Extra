@@ -39,8 +39,7 @@ Dolphin. See [COPYING](COPYING) for the full license text.
 </details>
 
 <details>
-<summary>Better Wii Menu</summary>
-# Better Wii Menu - For Dolphin Emulator
+<summary>Better Wii Menu - For Dolphin Emulator</summary>
 
 A custom Dolphin build that lets disc image files (.rvz, .iso, .wbfs, .gcz, .ciso, .wia) work as channels on the Wii System Menu.
 
@@ -73,6 +72,7 @@ Switching between games has never been easier!
 
 <details>
 <summary>Original</summary>
+
 # Dolphin - A GameCube and Wii Emulator
 
 [Homepage](https://dolphin-emu.org/) | [Project Site](https://github.com/dolphin-emu/dolphin) | [Buildbot](https://dolphin.ci/) | [Forums](https://forums.dolphin-emu.org/) | [Wiki](https://wiki.dolphin-emu.org/) | [GitHub Wiki](https://github.com/dolphin-emu/dolphin/wiki) | [Issue Tracker](https://bugs.dolphin-emu.org/projects/emulator/issues) | [Coding Style](https://github.com/dolphin-emu/dolphin/blob/master/Contributing.md) | [Transifex Page](https://app.transifex.com/dolphinemu/dolphin-emu/dashboard/) | [Analytics](https://mon.dolphin-emu.org/)
