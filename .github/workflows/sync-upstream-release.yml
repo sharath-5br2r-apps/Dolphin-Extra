@@ -1,12 +1,9 @@
 name: Sync And Build
-permissions: write-all
+
+permissions:
+  contents: write
 
 on:
-  # Every 6 hours. Deliberately not more frequent: upstream Dolphin releases roughly
-  # monthly, GitHub heavily throttles scheduled workflows on public repos anyway (a
-  # */30 cron was observed actually firing about every 2h20m), and every tick during a
-  # GitHub Actions outage produces a failed-run notification for a check that would
-  # have exited in seconds with "nothing to do".
   schedule:
     - cron: '0 1/2 * * *'
   workflow_dispatch:
@@ -17,13 +14,15 @@ concurrency:
 
 jobs:
   # ==========================================
-  # 1. CHECK JOB (Determines PR number)
+  # 1. CHECK JOB (Determines PR number & release tag)
   # ==========================================
   check:
     runs-on: ubuntu-latest
     outputs:
       pr_number: ${{ steps.latest.outputs.pr_number }}
       should_run: ${{ steps.check.outputs.should_run }}
+      release_tag: ${{ steps.check.outputs.release_tag }}
+      release_name: ${{ steps.check.outputs.release_name }}
 
     steps:
       - name: Determine latest upstream merged PR
@@ -33,34 +32,48 @@ jobs:
             | jq -r '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | last | .number')
 
           if [ -z "$LATEST_PR" ] || [ "$LATEST_PR" = "null" ]; then
-            echo "No recently merged PRs found in the fetched batch"
+            echo "Error: No valid upstream PR found!"
             exit 1
           fi
           echo "pr_number=$LATEST_PR" >> "$GITHUB_OUTPUT"
           echo "Latest upstream merged PR number: $LATEST_PR"
 
-      - name: Check if already synced
+      - name: Check if already synced & compute release metadata
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="pr-${{ steps.latest.outputs.pr_number }}"
+          PR_NUM="${{ steps.latest.outputs.pr_number }}"
+          TAG="pr-$PR_NUM"
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "Triggered via workflow_dispatch; forcing run for $TAG"
-            exit 0
-          fi
-
-          if git ls-remote --exit-code --tags "https://github.com/${{ github.repository }}.git" \
+          elif git ls-remote --exit-code --tags "https://github.com/${{ github.repository }}.git" \
               "refs/tags/sync/$TAG" >/dev/null 2>&1; then
             echo "should_run=false" >> "$GITHUB_OUTPUT"
             echo "$TAG already synced, nothing to do"
             exit 0
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "$TAG is new, running full sync!"
           fi
 
-          echo "should_run=true" >> "$GITHUB_OUTPUT"
-          echo "$TAG is new, running full sync!"
+          # Derive release tag & release name using upstream naming structure
+          EXISTING=$(gh api "repos/${{ github.repository }}/releases" --paginate --jq '.[].tag_name' \
+            | grep -E "^dolphin-pr-$PR_NUM(-r[0-9]+)?$" || true)
+
+          if [ -z "$EXISTING" ]; then
+            echo "release_tag=dolphin-pr-$PR_NUM" >> "$GITHUB_OUTPUT"
+            echo "release_name=Dolphin PR #$PR_NUM + Custom Storage Location" >> "$GITHUB_OUTPUT"
+          else
+            MAX_REV=$(echo "$EXISTING" \
+              | sed -E "s/^dolphin-pr-$PR_NUM-r([0-9]+)\$/\1/; s/^dolphin-pr-$PR_NUM\$/1/" \
+              | sort -n | tail -1)
+            NEXT_REV=$((MAX_REV + 1))
+            echo "release_tag=dolphin-pr-$PR_NUM-r$NEXT_REV" >> "$GITHUB_OUTPUT"
+            echo "release_name=Dolphin PR #$PR_NUM + Custom Storage Location (Update $NEXT_REV)" >> "$GITHUB_OUTPUT"
+          fi
 
 
   # ==========================================
@@ -93,7 +106,7 @@ jobs:
           git remote add upstream https://github.com/dolphin-emu/dolphin.git
           git fetch upstream "pull/${{ needs.check.outputs.pr_number }}/head:upstream-pr-${{ needs.check.outputs.pr_number }}" --quiet
 
-      - name: Create fresh release-sync branch from latest feature work
+      - name: Create fresh release-sync branch from master
         run: git checkout -B release-sync master
 
       - name: Merge upstream PR branch
@@ -113,7 +126,7 @@ jobs:
       - name: Report merge conflict
         if: steps.merge.outputs.conflict == 'true'
         run: |
-          echo "Automatic merge of upstream PR '#${{ needs.check.outputs.pr_number }}' produced conflicts"
+          echo "Automatic merge of upstream PR #${{ needs.check.outputs.pr_number }} produced conflicts."
           exit 1
 
       - name: Update submodules
@@ -122,15 +135,9 @@ jobs:
       - name: Push release-sync branch
         run: git push origin release-sync --force
 
-      - name: Tag sync marker
-        continue-on-error: true
-        run: |
-          git tag "sync/pr-${{ needs.check.outputs.pr_number }}"
-          git push origin "sync/pr-${{ needs.check.outputs.pr_number }}"
-
 
   # ==========================================
-  # 3A. BUILD JOB - ANDROID (Flavors Matrix)
+  # 3A. DOWNSTREAM BUILD JOB - ANDROID
   # ==========================================
   android:
     needs: [check, sync]
@@ -186,15 +193,7 @@ jobs:
         working-directory: Source/Android
         run: |
           PR_NUM="${{ needs.check.outputs.pr_number }}"
-          if [ -n "$PR_NUM" ]; then
-            SUFFIX="-vpr$PR_NUM"
-          else
-            SUFFIX="-vmanual"
-          fi
-
           chmod +x gradlew
-
-          echo "Executing Gradle task: ${{ matrix.task }}"
 
           ./gradlew ${{ matrix.task }} --no-daemon \
             -Pkeystore="$RUNNER_TEMP/dolphincs-release.p12" \
@@ -211,8 +210,7 @@ jobs:
           fi
 
           if [ -n "$FOUND_APK" ]; then
-            echo "Found APK at: $FOUND_APK"
-            mv "$FOUND_APK" "../../artifact/dolphin-extra-android-${{ matrix.flavor }}${SUFFIX}-all.apk"
+            mv "$FOUND_APK" "../../artifact/dolphin-extra-android-${{ matrix.flavor }}-vpr${PR_NUM}-all.apk"
           else
             echo "Failed to locate APK for flavor '${{ matrix.flavor }}'!"
             exit 1
@@ -233,7 +231,7 @@ jobs:
 
 
   # ==========================================
-  # 3B. BUILD JOB - WINDOWS
+  # 3B. DOWNSTREAM BUILD JOB - WINDOWS
   # ==========================================
   windows:
     needs: [check, sync]
@@ -286,12 +284,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           $PR_NUM = "${{ needs.check.outputs.pr_number }}"
-          if ($PR_NUM) {
-            $SUFFIX = "-vpr$PR_NUM"
-          } else {
-            $SUFFIX = "-vmanual"
-          }
-          $FILE_NAME = "dolphin-extra-windows${SUFFIX}-x86_64.zip"
+          $FILE_NAME = "dolphin-extra-windows-vpr${PR_NUM}-x86_64.zip"
 
           New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
           Set-Location -Path ".\Binary\x64\"
@@ -309,7 +302,7 @@ jobs:
 
 
   # ==========================================
-  # 3C. BUILD JOB - LINUX
+  # 3C. DOWNSTREAM BUILD JOB - LINUX
   # ==========================================
   linux:
     needs: [check, sync]
@@ -340,7 +333,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DLINUX_LOCAL_DEV=true -DCMAKE_PREFIX_PATH=./Externals/Qt/Qt6.5.1/x64/lib/cmake/ ..
+          cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DLINUX_LOCAL_DEV=true ..
 
       - name: Build
         run: |
@@ -352,12 +345,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           PR_NUM="${{ needs.check.outputs.pr_number }}"
-          if [ -n "$PR_NUM" ]; then
-            SUFFIX="-vpr$PR_NUM"
-          else
-            SUFFIX="-vmanual"
-          fi
-          FILE_NAME="folphin-extra-linux${SUFFIX}-x86_64.zip"
+          FILE_NAME="dolphin-extra-linux-vpr${PR_NUM}-x86_64.zip"
 
           mkdir -p artifact
           cd build/Binaries
@@ -372,7 +360,7 @@ jobs:
 
 
   # ==========================================
-  # 4. RELEASE JOB (Publishes to GitHub Releases)
+  # 4. RELEASE JOB (Uses Upstream Tag & Title Naming)
   # ==========================================
   release:
     needs: [check, android, windows, linux]
@@ -389,47 +377,28 @@ jobs:
           pattern: "*-build"
           merge-multiple: true
 
-      - name: Get Next Version Code
-        id: version
-        run: |
-          set -euo pipefail
-          YEAR=$(date -u +"%y")
-          TAG=$( { gh release list -R sharath-5br2r/my-patched-apks --exclude-drafts -L 100 2>/dev/null || true; } | awk -F '\t' -v year="$YEAR" '$3 ~ "^" year "[0-9][0-9][0-9][0-9]$" {print $3}' | sort -r | head -n 1 )
-          if [ -n "$TAG" ]; then
-              BUILD_COUNT=${TAG:2:4}
-              BUILD_COUNT=$((10#$BUILD_COUNT + 1))
-          else
-              BUILD_COUNT=1
-          fi
-
-          NEXT_VER_CODE=$(printf "%s%04d" "$YEAR" "$BUILD_COUNT")
-          echo "NEXT_VER_CODE=$NEXT_VER_CODE" >> "$GITHUB_OUTPUT"
-        env:
-          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-
-      - name: Upload to release (Archive)
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ./release-files/*
-          tag_name: beta
-          overwrite_files: true
-          prerelease: true
-          repository: sharath-5br2r/my-patched-apks
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.NEXT_VER_CODE }}
-          name: Build No. ${{ steps.version.outputs.NEXT_VER_CODE }} (Dolphin Extra)
-          prerelease: true
-          repository: sharath-5br2r/my-patched-apks
-          overwrite_files: true
+          tag_name: "${{ needs.check.outputs.release_tag }}"
+          name: "${{ needs.check.outputs.release_name }}"
+          target_commitish: release-sync
+          prerelease: false
           make_latest: true
           files: ./release-files/*
           body: |
-            Built from custom release-sync branch, merged with the
-            custom user data storage location feature (Scoped Storage / Internal Storage / SD Card) and Games on Wii Menu Patch
+            Built from upstream Dolphin PR `#${{ needs.check.outputs.pr_number }}`, merged with the
+            custom user data storage location feature (Scoped Storage / Internal Storage / SD Card).
 
             This is an unofficial community build, not affiliated with the Dolphin team.
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag sync marker
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "sync/pr-${{ needs.check.outputs.pr_number }}"
+          git push origin "sync/pr-${{ needs.check.outputs.pr_number }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
