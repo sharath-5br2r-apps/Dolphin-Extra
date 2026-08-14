@@ -187,7 +187,7 @@ jobs:
           restore-keys: cxx-${{ matrix.flavor }}-${{ runner.os }}-
 
       - name: Decode release keystore
-        run: echo "${{ secrets.KEYSTORE_P12 }}" | base64 -d > "$RUNNER_TEMP/dolphincs-release.p12"
+        run: echo "${{ secrets.KEYSTORE_P12_BASE64 }}" | base64 -d > "$RUNNER_TEMP/dolphincs-release.p12"
 
       - name: Build release APK (${{ matrix.flavor }})
         working-directory: Source/Android
@@ -197,9 +197,9 @@ jobs:
 
           ./gradlew ${{ matrix.task }} --no-daemon \
             -Pkeystore="$RUNNER_TEMP/dolphincs-release.p12" \
-            -Pstorepass="${{ secrets.KEYSTORE_PASS }}" \
+            -Pstorepass="${{ secrets.KEYSTORE_PASSWORD }}" \
             -Pkeyalias="${{ secrets.KEYSTORE_ALIAS }}" \
-            -Pkeypass="${{ secrets.KEYSTORE_PASS }}"
+            -Pkeypass="${{ secrets.KEYSTORE_KEY_PASSWORD }}"
 
           mkdir -p ../../artifact
 
