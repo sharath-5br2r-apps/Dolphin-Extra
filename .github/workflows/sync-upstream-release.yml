@@ -198,7 +198,7 @@ jobs:
           ./gradlew ${{ matrix.task }} --no-daemon \
             -Pkeystore="$RUNNER_TEMP/dolphincs-release.p12" \
             -Pstorepass="${{ secrets.KEYSTORE_PASSWORD }}" \
-            -Pkeyalias="${{ secrets.KEYSTORE_ALIAS }}" \
+            -Pkeyalias="${{ vars.KEYSTORE_ALIAS }}" \
             -Pkeypass="${{ secrets.KEYSTORE_KEY_PASSWORD }}"
 
           mkdir -p ../../artifact
