@@ -437,16 +437,6 @@ jobs:
 
           echo "This is an unofficial community build, not affiliated with the Dolphin team." >> release_notes.md
 
-      - name: Upload to release (Archive)
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ./release-files/*
-          tag_name: beta
-          overwrite_files: true
-          prerelease: true
-          repository: sharath-5br2r/my-patched-apks
-          body_path: release_notes.md
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
