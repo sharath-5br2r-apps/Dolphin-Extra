@@ -63,16 +63,24 @@ jobs:
           EXISTING=$(gh api "repos/${{ github.repository }}/releases" --paginate --jq '.[].tag_name' \
             | grep -E "^dolphin-pr-$PR_NUM(-r[0-9]+)?$" || true)
 
+          PR_JSON=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls/$PR_NUM" || true)
+          PR_TITLE=$(echo "$PR_JSON" | jq -r '.title // empty')
+
+          TITLE_SUFFIX=""
+          if [ -n "$PR_TITLE" ]; then
+            TITLE_SUFFIX=": $PR_TITLE"
+          fi
+
           if [ -z "$EXISTING" ]; then
             echo "release_tag=dolphin-pr-$PR_NUM" >> "$GITHUB_OUTPUT"
-            echo "release_name=Dolphin PR #$PR_NUM + Custom Storage Location" >> "$GITHUB_OUTPUT"
+            echo "release_name=Dolphin PR #$PR_NUM${TITLE_SUFFIX} + Custom Storage Location" >> "$GITHUB_OUTPUT"
           else
             MAX_REV=$(echo "$EXISTING" \
               | sed -E "s/^dolphin-pr-$PR_NUM-r([0-9]+)\$/\1/; s/^dolphin-pr-$PR_NUM\$/1/" \
               | sort -n | tail -1)
             NEXT_REV=$((MAX_REV + 1))
             echo "release_tag=dolphin-pr-$PR_NUM-r$NEXT_REV" >> "$GITHUB_OUTPUT"
-            echo "release_name=Dolphin PR #$PR_NUM + Custom Storage Location (Update $NEXT_REV)" >> "$GITHUB_OUTPUT"
+            echo "release_name=Dolphin PR #$PR_NUM${TITLE_SUFFIX} + Custom Storage Location (Update $NEXT_REV)" >> "$GITHUB_OUTPUT"
           fi
 
 
