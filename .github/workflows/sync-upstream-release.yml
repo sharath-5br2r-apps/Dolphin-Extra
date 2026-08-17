@@ -28,7 +28,7 @@ jobs:
       - name: Determine latest upstream merged PR
         id: latest
         run: |
-          LATEST_PR=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls?state=closed&per_page=50" \
+          LATEST_PR=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls?state=closed&sort=updated&direction=desc&per_page=100" \
             | jq -r '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | last | .number')
 
           if [ -z "$LATEST_PR" ] || [ "$LATEST_PR" = "null" ]; then
