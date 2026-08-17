@@ -377,6 +377,72 @@ jobs:
           pattern: "*-build"
           merge-multiple: true
 
+<<<<<<< HEAD
+=======
+      - name: Get Next Version Code
+        id: version
+        run: |
+          set -euo pipefail
+          YEAR=$(date -u +"%y")
+          TAG=$( { gh release list -R sharath-5br2r/my-patched-apks --exclude-drafts -L 100 2>/dev/null || true; } | awk -F '\t' -v year="$YEAR" '$3 ~ "^" year "[0-9][0-9][0-9][0-9]$" {print $3}' | sort -r | head -n 1 )
+          if [ -n "$TAG" ]; then
+              BUILD_COUNT=${TAG:2:4}
+              BUILD_COUNT=$((10#$BUILD_COUNT + 1))
+          else
+              BUILD_COUNT=1
+          fi
+
+          NEXT_VER_CODE=$(printf "%s%04d" "$YEAR" "$BUILD_COUNT")
+          echo "NEXT_VER_CODE=$NEXT_VER_CODE" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          set -euo pipefail
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+
+          echo "Built from custom release-sync branch, merged with the custom user data storage location feature (Scoped Storage / Internal Storage / SD Card) and Games on Wii Menu Patch." > release_notes.md
+          echo "" >> release_notes.md
+
+          if [ -n "$PR_NUM" ] && [ "$PR_NUM" != "null" ]; then
+              echo "Built from upstream Dolphin PR \`#${PR_NUM}\`." >> release_notes.md
+              echo "" >> release_notes.md
+              PR_JSON=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls/$PR_NUM" || true)
+              PR_TITLE=$(echo "$PR_JSON" | jq -r '.title // empty')
+              PR_AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login // empty')
+              PR_URL=$(echo "$PR_JSON" | jq -r '.html_url // empty')
+              PR_BODY=$(echo "$PR_JSON" | jq -r '.body // empty')
+
+              if [ -n "$PR_TITLE" ]; then
+                  echo "### Upstream Dolphin PR [#${PR_NUM}](${PR_URL})" >> release_notes.md
+                  echo "**Title:** ${PR_TITLE}" >> release_notes.md
+                  if [ -n "$PR_AUTHOR" ]; then
+                      echo "**Author:** [@${PR_AUTHOR}](https://github.com/${PR_AUTHOR})" >> release_notes.md
+                  fi
+                  echo "" >> release_notes.md
+                  if [ -n "$PR_BODY" ]; then
+                      echo "#### PR Description" >> release_notes.md
+                      echo "${PR_BODY}" >> release_notes.md
+                      echo "" >> release_notes.md
+                  fi
+              fi
+          fi
+
+          echo "This is an unofficial community build, not affiliated with the Dolphin team." >> release_notes.md
+
+      - name: Upload to release (Archive)
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ./release-files/*
+          tag_name: beta
+          overwrite_files: true
+          prerelease: true
+          repository: sharath-5br2r/my-patched-apks
+          body_path: release_notes.md
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -386,11 +452,7 @@ jobs:
           prerelease: false
           make_latest: true
           files: ./release-files/*
-          body: |
-            Built from upstream Dolphin PR `#${{ needs.check.outputs.pr_number }}`, merged with the
-            custom user data storage location feature (Scoped Storage / Internal Storage / SD Card).
-
-            This is an unofficial community build, not affiliated with the Dolphin team.
+          body_path: release_notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
