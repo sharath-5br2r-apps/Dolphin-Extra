@@ -23,7 +23,7 @@ if(ENABLE_CUBEB)
   target_link_libraries(audiocommon PRIVATE cubeb)
 endif()
 
-if(ANDROID)
+if(ANDROID_NOT_TERMUX)
   find_package(OpenSLES)
   if(OPENSLES_FOUND)
     message(STATUS "OpenSLES found, enabling OpenSLES sound backend")

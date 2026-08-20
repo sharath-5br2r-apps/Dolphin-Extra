@@ -719,7 +719,7 @@ if (APPLE)
     ${IOK_LIBRARY}
     resolv
   )
-elseif (ANDROID)
+elseif (ANDROID_NOT_TERMUX)
   target_link_libraries(core
   PRIVATE
     androidcommon
@@ -790,7 +790,7 @@ elseif(UNIX)
   target_sources(core PRIVATE
     HW/EXI/BBA/TAP_Unix.cpp
   )
-  if(ANDROID)
+  if(ANDROID_NOT_TERMUX)
     target_sources(core PRIVATE
       HW/WiimoteReal/IOAndroid.cpp
       HW/WiimoteReal/IOAndroid.h

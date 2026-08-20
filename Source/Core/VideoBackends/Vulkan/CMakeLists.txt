@@ -46,7 +46,7 @@ PRIVATE
   xxhash::xxhash
 )
 
-if (ANDROID AND _M_ARM_64)
+if (ANDROID_NOT_TERMUX AND _M_ARM_64)
   target_link_libraries(videovulkan
   PRIVATE
       adrenotools

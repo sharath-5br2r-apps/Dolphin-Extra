@@ -1,7 +1,6 @@
 add_library(inputcommon
   DynamicInputTextureManager.cpp
   DynamicInputTextureManager.h
-  GCAdapter.cpp
   GCAdapter.h
   ImageOperations.cpp
   ImageOperations.h
@@ -87,6 +86,12 @@ PRIVATE
   spng::spng
 )
 
+if(NOT ANDROID_NOT_TERMUX)
+  target_sources(inputcommon PRIVATE GCAdapter.cpp)
+else()
+  target_sources(inputcommon PRIVATE GCAdapterStub.cpp)
+endif()
+
 if(WIN32)
   target_sources(inputcommon PRIVATE
     ControllerInterface/DInput/DInput.cpp
@@ -131,7 +136,7 @@ elseif(X11_FOUND)
     ControllerInterface/Xlib/XInput2.h
   )
   target_link_libraries(inputcommon PRIVATE PkgConfig::X11_INPUT)
-elseif(ANDROID)
+elseif(ANDROID_NOT_TERMUX)
   target_compile_definitions(inputcommon PRIVATE -DCIFACE_USE_ANDROID)
   target_sources(inputcommon PRIVATE
     ControllerInterface/Android/Android.cpp
@@ -144,7 +149,7 @@ elseif(ANDROID)
   )
 endif()
 
-if(NOT ANDROID)
+if(TARGET LibUSB::LibUSB)
   target_link_libraries(inputcommon PUBLIC LibUSB::LibUSB)
 endif()
 

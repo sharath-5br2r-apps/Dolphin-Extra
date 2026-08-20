@@ -3,7 +3,7 @@
 
 #include "InputCommon/GCAdapter.h"
 
-#ifndef ANDROID
+#if !defined(ANDROID) || defined(DOLPHIN_TERMUX)
 #define GCADAPTER_USE_LIBUSB_IMPLEMENTATION true
 #define GCADAPTER_USE_ANDROID_IMPLEMENTATION false
 #else

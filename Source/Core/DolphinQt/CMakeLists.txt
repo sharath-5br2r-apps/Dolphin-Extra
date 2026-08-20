@@ -502,7 +502,7 @@ if (MSVC)
   target_compile_options(dolphin-emu PRIVATE "/GR")
 endif()
 
-if (NOT APPLE AND NOT ANDROID)
+if (NOT APPLE AND (NOT ANDROID OR NOT ANDROID_NOT_TERMUX))
   # Symlink Sys
   add_custom_command(TARGET dolphin-emu POST_BUILD
     COMMAND ${CMAKE_COMMAND}

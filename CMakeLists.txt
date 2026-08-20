@@ -60,7 +60,7 @@ set(AppleClang_min_version 14.0.3)
 set(MSVC_min_version 19.32)
 # Standard libraries
 set(libstdc++_min_version 12) # This should match GCC_min_version's major version.
-set(libc++_min_version 150000) # This should match Clang_min_version in the format "xxyyzz" instead of "xx.yy.zz" 
+set(libc++_min_version 150000) # This should match Clang_min_version in the format "xxyyzz" instead of "xx.yy.zz"
 
 dolphin_check_toolset_version("Xcode" XCODE_VERSION ${Xcode_min_version})
 dolphin_check_toolset_version("MSVC Toolset" MSVC_TOOLSET_VERSION ${MSVC_toolset_min_version})
@@ -86,17 +86,14 @@ set(DISTRIBUTOR "None" CACHE STRING "Name of the distributor.")
 
 set(DOLPHIN_DEFAULT_UPDATE_TRACK "" CACHE STRING "Name of the default update track. If empty, disables auto-update.")
 
-if(UNIX AND NOT APPLE AND NOT ANDROID)
+if(UNIX AND NOT APPLE )
   option(ENABLE_X11 "Enables X11 Support" ON)
 endif()
 if(NOT WIN32 AND NOT APPLE AND NOT HAIKU)
   option(ENABLE_EGL "Enables EGL OpenGL Interface" ON)
 endif()
 
-if(NOT ANDROID)
-  option(ENABLE_CLI_TOOL "Enable dolphin-tool, a CLI-based utility for functions such as managing disc images" ON)
-endif()
-
+option(ENABLE_CLI_TOOL "Enable dolphin-tool, a CLI-based utility for functions such as managing disc images" ON)
 
 set(USE_SYSTEM_LIBS "AUTO" CACHE STRING "Use system libraries instead of bundled libraries.  ON - Always use system and fail if unavailable, OFF - Always use bundled, AUTO - Use system if available, otherwise use bundled.  Default is AUTO")
 if(APPROVED_VENDORED_DEPENDENCIES)
@@ -142,11 +139,11 @@ if(WIN32)
 endif()
 
 # Enable SDL by default on operating systems that aren't Android.
-if(NOT ANDROID)
-  option(ENABLE_SDL "Enables SDL as a generic controller backend" ON)
-else()
-  option(ENABLE_SDL "Enables SDL as a generic controller backend" OFF)
-endif()
+
+option(ENABLE_SDL "Enables SDL as a generic controller backend" ON)
+#else()
+#  option(ENABLE_SDL "Enables SDL as a generic controller backend" OFF)
+#endif()
 
 if(APPLE)
   enable_language(OBJC)
@@ -432,7 +429,7 @@ if(ENABLE_VTUNE)
   )
 endif()
 
-if(ANDROID)
+if(ANDROID_NOT_TERMUX)
   message(STATUS "Building for Android")
   if(NOT ENABLE_HEADLESS)
     add_definitions(-DANDROID)
@@ -453,6 +450,10 @@ if(ANDROID)
   SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
   SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
   SET(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+  # Use the bundled mGBA API; the system package may be a newer incompatible version.
+  set(USE_SYSTEM_LIBMGBA OFF CACHE STRING "Use bundled mGBA on Termux" FORCE)
+  add_definitions(-DDOLPHIN_TERMUX)
 endif()
 
 if(ENABLE_HEADLESS)
@@ -587,9 +588,9 @@ endif()
 # Setup include directories (and make sure they are preferred over the Externals)
 #
 include_directories(Source/Core)
-if(ANDROID)
-  include_directories(Source/Android)
-endif()
+#if(ANDROID)
+#  include_directories(Source/Android)
+#endif()
 
 ########################################
 # Process externals and setup their include directories
@@ -635,7 +636,7 @@ if(ENABLE_VULKAN)
   endif()
 
 
-  if (ANDROID AND _M_ARM_64)
+  if (ANDROID_NOT_TERMUX AND _M_ARM_64)
     add_subdirectory(Externals/libadrenotools)
   endif()
 endif()
@@ -646,7 +647,7 @@ if(NOT (WIN32 AND _M_ARM_64))
 endif()
 
 if(NOT WIN32)
-  if(ANDROID)
+  if(ANDROID_NOT_TERMUX)
     set(USE_SYSTEM_Iconv OFF)
   endif()
   dolphin_find_optional_system_library(Iconv Externals/libiconv 1.14)
@@ -694,7 +695,10 @@ if(ENABLE_CUBEB)
   add_definitions(-DHAVE_CUBEB)
 endif()
 
-if(NOT ANDROID)
+if(NOT ANDROID OR NOT ANDROID_NOT_TERMUX)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Android" AND NOT ANDROID_NOT_TERMUX)
+    set(USE_SYSTEM_LIBUSB OFF CACHE STRING "Use patched bundled libusb on Termux" FORCE)
+  endif()
   dolphin_find_optional_system_library(LibUSB Externals/libusb)
   add_definitions(-D__LIBUSB__)
 endif()

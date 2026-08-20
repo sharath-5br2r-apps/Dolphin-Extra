@@ -80,7 +80,7 @@ if(HAVE_ELF_AUX_INFO)
 endif()
 
 add_subdirectory(Core)
-if (ANDROID)
+if (ANDROID_NOT_TERMUX)
   add_subdirectory(Android/jni)
 endif()
 

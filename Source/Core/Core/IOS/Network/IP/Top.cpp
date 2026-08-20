@@ -49,7 +49,7 @@
 #include <unistd.h>
 #endif
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) && !defined(DOLPHIN_TERMUX)
 #include "jni/AndroidCommon/AndroidCommon.h"
 #endif
 
@@ -400,7 +400,7 @@ static std::optional<DefaultInterface> GetSystemDefaultInterface()
       }
     }
   }
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) && !defined(DOLPHIN_TERMUX)
   const u32 addr = GetNetworkIpAddress();
   const u32 prefix_length = GetNetworkPrefixLength();
   const u32 netmask = (1 << prefix_length) - 1;
@@ -1115,7 +1115,8 @@ IPCReply NetIPTopDevice::HandleGetInterfaceOptRequest(const IOCtlVRequest& reque
         FREE(AdapterAddresses);
       }
     }
-#elif (defined(__linux__) && !defined(ANDROID)) || defined(__APPLE__) || defined(__FreeBSD__) ||   \
+#elif (defined(__linux__) && !defined(ANDROID) && !defined(DOLPHIN_TERMUX)) ||                  \
+    defined(__APPLE__) || defined(__FreeBSD__) || \
     defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)
     if (!Core::WantsDeterminism())
     {

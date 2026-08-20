@@ -168,6 +168,10 @@ add_library(common
   WorkQueueThread.h
 )
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+  target_compile_definitions(common PRIVATE DOLPHIN_ANDROID_THREAD_AFFINITY)
+endif()
+
 add_dependencies(common dolphin_scmrev)
 
 if(NOT MSVC AND _M_ARM_64)
@@ -217,7 +221,7 @@ elseif(WIN32)
   if (_M_X86_64)
     target_link_libraries(common PRIVATE opengl32.lib)
   endif()
-elseif (ANDROID)
+elseif (ANDROID_NOT_TERMUX)
   target_link_libraries(common
   PRIVATE
     androidcommon
@@ -226,9 +230,13 @@ elseif(HAIKU)
   target_link_libraries(common PRIVATE be GL)
 endif()
 
-if(ANDROID)
+if(ANDROID_NOT_TERMUX)
   target_sources(common PRIVATE
     Logging/ConsoleListenerDroid.cpp
+  )
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+  target_sources(common PRIVATE
+    Logging/ConsoleListenerNix.cpp
     MemArenaAndroid.cpp
   )
 elseif(WIN32)
@@ -293,7 +301,7 @@ if(ENABLE_EGL AND EGL_FOUND)
     GL/GLInterface/EGL.cpp
     GL/GLInterface/EGL.h
   )
-  if(ANDROID)
+  if(ANDROID_NOT_TERMUX)
     target_sources(common PRIVATE
       GL/GLInterface/EGLAndroid.cpp
       GL/GLInterface/EGLAndroid.h

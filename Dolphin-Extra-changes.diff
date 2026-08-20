@@ -1,0 +1,594 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2622a18d7c..8b43b6c9fa 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -60,7 +60,7 @@ set(AppleClang_min_version 14.0.3)
+ set(MSVC_min_version 19.32)
+ # Standard libraries
+ set(libstdc++_min_version 12) # This should match GCC_min_version's major version.
+-set(libc++_min_version 150000) # This should match Clang_min_version in the format "xxyyzz" instead of "xx.yy.zz" 
++set(libc++_min_version 150000) # This should match Clang_min_version in the format "xxyyzz" instead of "xx.yy.zz"
+ 
+ dolphin_check_toolset_version("Xcode" XCODE_VERSION ${Xcode_min_version})
+ dolphin_check_toolset_version("MSVC Toolset" MSVC_TOOLSET_VERSION ${MSVC_toolset_min_version})
+@@ -86,17 +86,14 @@ set(DISTRIBUTOR "None" CACHE STRING "Name of the distributor.")
+ 
+ set(DOLPHIN_DEFAULT_UPDATE_TRACK "" CACHE STRING "Name of the default update track. If empty, disables auto-update.")
+ 
+-if(UNIX AND NOT APPLE AND NOT ANDROID)
++if(UNIX AND NOT APPLE )
+   option(ENABLE_X11 "Enables X11 Support" ON)
+ endif()
+ if(NOT WIN32 AND NOT APPLE AND NOT HAIKU)
+   option(ENABLE_EGL "Enables EGL OpenGL Interface" ON)
+ endif()
+ 
+-if(NOT ANDROID)
+-  option(ENABLE_CLI_TOOL "Enable dolphin-tool, a CLI-based utility for functions such as managing disc images" ON)
+-endif()
+-
++option(ENABLE_CLI_TOOL "Enable dolphin-tool, a CLI-based utility for functions such as managing disc images" ON)
+ 
+ set(USE_SYSTEM_LIBS "AUTO" CACHE STRING "Use system libraries instead of bundled libraries.  ON - Always use system and fail if unavailable, OFF - Always use bundled, AUTO - Use system if available, otherwise use bundled.  Default is AUTO")
+ if(APPROVED_VENDORED_DEPENDENCIES)
+@@ -142,11 +139,11 @@ if(WIN32)
+ endif()
+ 
+ # Enable SDL by default on operating systems that aren't Android.
+-if(NOT ANDROID)
+-  option(ENABLE_SDL "Enables SDL as a generic controller backend" ON)
+-else()
+-  option(ENABLE_SDL "Enables SDL as a generic controller backend" OFF)
+-endif()
++
++option(ENABLE_SDL "Enables SDL as a generic controller backend" ON)
++#else()
++#  option(ENABLE_SDL "Enables SDL as a generic controller backend" OFF)
++#endif()
+ 
+ if(APPLE)
+   enable_language(OBJC)
+@@ -432,7 +429,7 @@ if(ENABLE_VTUNE)
+   )
+ endif()
+ 
+-if(ANDROID)
++if(ANDROID_NOT_TERMUX)
+   message(STATUS "Building for Android")
+   if(NOT ENABLE_HEADLESS)
+     add_definitions(-DANDROID)
+@@ -453,6 +450,10 @@ if(ANDROID)
+   SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+   SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+   SET(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
++  # Use the bundled mGBA API; the system package may be a newer incompatible version.
++  set(USE_SYSTEM_LIBMGBA OFF CACHE STRING "Use bundled mGBA on Termux" FORCE)
++  add_definitions(-DDOLPHIN_TERMUX)
+ endif()
+ 
+ if(ENABLE_HEADLESS)
+@@ -587,9 +588,9 @@ endif()
+ # Setup include directories (and make sure they are preferred over the Externals)
+ #
+ include_directories(Source/Core)
+-if(ANDROID)
+-  include_directories(Source/Android)
+-endif()
++#if(ANDROID)
++#  include_directories(Source/Android)
++#endif()
+ 
+ ########################################
+ # Process externals and setup their include directories
+@@ -635,7 +636,7 @@ if(ENABLE_VULKAN)
+   endif()
+ 
+ 
+-  if (ANDROID AND _M_ARM_64)
++  if (ANDROID_NOT_TERMUX AND _M_ARM_64)
+     add_subdirectory(Externals/libadrenotools)
+   endif()
+ endif()
+@@ -646,7 +647,7 @@ if(NOT (WIN32 AND _M_ARM_64))
+ endif()
+ 
+ if(NOT WIN32)
+-  if(ANDROID)
++  if(ANDROID_NOT_TERMUX)
+     set(USE_SYSTEM_Iconv OFF)
+   endif()
+   dolphin_find_optional_system_library(Iconv Externals/libiconv 1.14)
+@@ -694,7 +695,10 @@ if(ENABLE_CUBEB)
+   add_definitions(-DHAVE_CUBEB)
+ endif()
+ 
+-if(NOT ANDROID)
++if(NOT ANDROID OR NOT ANDROID_NOT_TERMUX)
++  if(CMAKE_SYSTEM_NAME STREQUAL "Android" AND NOT ANDROID_NOT_TERMUX)
++    set(USE_SYSTEM_LIBUSB OFF CACHE STRING "Use patched bundled libusb on Termux" FORCE)
++  endif()
+   dolphin_find_optional_system_library(LibUSB Externals/libusb)
+   add_definitions(-D__LIBUSB__)
+ endif()
+diff --git a/Externals/libusb/CMakeLists.txt b/Externals/libusb/CMakeLists.txt
+index ffd6d42781..9ffa8913b4 100644
+--- a/Externals/libusb/CMakeLists.txt
++++ b/Externals/libusb/CMakeLists.txt
+@@ -51,7 +51,7 @@ elseif(APPLE)
+ #  )
+ #  find_library(LOG_LIBRARY log)
+ #  target_link_libraries(usb PRIVATE ${LOG_LIBRARY})
+-elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
++elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux|Android")
+   target_sources(usb PRIVATE libusb/libusb/os/linux_usbfs.c)
+   find_package(LIBUDEV)
+   if(LIBUDEV_FOUND)
+diff --git a/Externals/libusb/libusb b/Externals/libusb/libusb
+--- a/Externals/libusb/libusb
++++ b/Externals/libusb/libusb
+@@ -1 +1 @@
+-Subproject commit 15a7ebb4d426c5ce196684347d2b7cafad862626
++Subproject commit 15a7ebb4d426c5ce196684347d2b7cafad862626-dirty
+diff --git a/Externals/mGBA/mgba b/Externals/mGBA/mgba
+--- a/Externals/mGBA/mgba
++++ b/Externals/mGBA/mgba
+@@ -1 +1 @@
+-Subproject commit 0b40863f64d0940f333fa1c638e75f86f8a26a33
++Subproject commit 0b40863f64d0940f333fa1c638e75f86f8a26a33-dirty
+diff --git a/Source/CMakeLists.txt b/Source/CMakeLists.txt
+index 7871083785..6a87802b1f 100644
+--- a/Source/CMakeLists.txt
++++ b/Source/CMakeLists.txt
+@@ -80,7 +80,7 @@ if(HAVE_ELF_AUX_INFO)
+ endif()
+ 
+ add_subdirectory(Core)
+-if (ANDROID)
++if (ANDROID_NOT_TERMUX)
+   add_subdirectory(Android/jni)
+ endif()
+ 
+diff --git a/Source/Core/AudioCommon/CMakeLists.txt b/Source/Core/AudioCommon/CMakeLists.txt
+index 04ad967234..8297328f9c 100644
+--- a/Source/Core/AudioCommon/CMakeLists.txt
++++ b/Source/Core/AudioCommon/CMakeLists.txt
+@@ -23,7 +23,7 @@ if(ENABLE_CUBEB)
+   target_link_libraries(audiocommon PRIVATE cubeb)
+ endif()
+ 
+-if(ANDROID)
++if(ANDROID_NOT_TERMUX)
+   find_package(OpenSLES)
+   if(OPENSLES_FOUND)
+     message(STATUS "OpenSLES found, enabling OpenSLES sound backend")
+diff --git a/Source/Core/Common/CMakeLists.txt b/Source/Core/Common/CMakeLists.txt
+index 97d8ad8f14..534f872689 100644
+--- a/Source/Core/Common/CMakeLists.txt
++++ b/Source/Core/Common/CMakeLists.txt
+@@ -168,6 +168,10 @@ add_library(common
+   WorkQueueThread.h
+ )
+ 
++if(CMAKE_SYSTEM_NAME STREQUAL "Android")
++  target_compile_definitions(common PRIVATE DOLPHIN_ANDROID_THREAD_AFFINITY)
++endif()
++
+ add_dependencies(common dolphin_scmrev)
+ 
+ if(NOT MSVC AND _M_ARM_64)
+@@ -217,7 +221,7 @@ elseif(WIN32)
+   if (_M_X86_64)
+     target_link_libraries(common PRIVATE opengl32.lib)
+   endif()
+-elseif (ANDROID)
++elseif (ANDROID_NOT_TERMUX)
+   target_link_libraries(common
+   PRIVATE
+     androidcommon
+@@ -226,9 +230,13 @@ elseif(HAIKU)
+   target_link_libraries(common PRIVATE be GL)
+ endif()
+ 
+-if(ANDROID)
++if(ANDROID_NOT_TERMUX)
+   target_sources(common PRIVATE
+     Logging/ConsoleListenerDroid.cpp
++  )
++elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
++  target_sources(common PRIVATE
++    Logging/ConsoleListenerNix.cpp
+     MemArenaAndroid.cpp
+   )
+ elseif(WIN32)
+@@ -293,7 +301,7 @@ if(ENABLE_EGL AND EGL_FOUND)
+     GL/GLInterface/EGL.cpp
+     GL/GLInterface/EGL.h
+   )
+-  if(ANDROID)
++  if(ANDROID_NOT_TERMUX)
+     target_sources(common PRIVATE
+       GL/GLInterface/EGLAndroid.cpp
+       GL/GLInterface/EGLAndroid.h
+diff --git a/Source/Core/Common/Thread.cpp b/Source/Core/Common/Thread.cpp
+index d9a40fc6b5..382887c772 100644
+--- a/Source/Core/Common/Thread.cpp
++++ b/Source/Core/Common/Thread.cpp
+@@ -124,7 +124,7 @@ void SetThreadAffinity(std::thread::native_handle_type thread, u32 mask)
+ #ifdef __APPLE__
+   thread_policy_set(pthread_mach_thread_np(thread), THREAD_AFFINITY_POLICY, (integer_t*)&mask, 1);
+ #elif (defined __linux__ || defined BSD4_4 || defined __FreeBSD__ || defined __NetBSD__) &&        \
+-    !(defined ANDROID)
++    !(defined ANDROID || defined __ANDROID__ || defined DOLPHIN_ANDROID_THREAD_AFFINITY)
+ #ifndef __NetBSD__
+ #ifdef __FreeBSD__
+   cpuset_t cpu_set;
+diff --git a/Source/Core/Core/CMakeLists.txt b/Source/Core/Core/CMakeLists.txt
+index 3a6bf42bcf..bb28463db6 100644
+--- a/Source/Core/Core/CMakeLists.txt
++++ b/Source/Core/Core/CMakeLists.txt
+@@ -719,7 +719,7 @@ if (APPLE)
+     ${IOK_LIBRARY}
+     resolv
+   )
+-elseif (ANDROID)
++elseif (ANDROID_NOT_TERMUX)
+   target_link_libraries(core
+   PRIVATE
+     androidcommon
+@@ -790,7 +790,7 @@ elseif(UNIX)
+   target_sources(core PRIVATE
+     HW/EXI/BBA/TAP_Unix.cpp
+   )
+-  if(ANDROID)
++  if(ANDROID_NOT_TERMUX)
+     target_sources(core PRIVATE
+       HW/WiimoteReal/IOAndroid.cpp
+       HW/WiimoteReal/IOAndroid.h
+diff --git a/Source/Core/Core/IOS/Network/IP/Top.cpp b/Source/Core/Core/IOS/Network/IP/Top.cpp
+index e38fd1df01..39b9219d87 100644
+--- a/Source/Core/Core/IOS/Network/IP/Top.cpp
++++ b/Source/Core/Core/IOS/Network/IP/Top.cpp
+@@ -49,7 +49,7 @@
+ #include <unistd.h>
+ #endif
+ 
+-#ifdef __ANDROID__
++#if defined(__ANDROID__) && !defined(DOLPHIN_TERMUX)
+ #include "jni/AndroidCommon/AndroidCommon.h"
+ #endif
+ 
+@@ -400,7 +400,7 @@ static std::optional<DefaultInterface> GetSystemDefaultInterface()
+       }
+     }
+   }
+-#elif defined(__ANDROID__)
++#elif defined(__ANDROID__) && !defined(DOLPHIN_TERMUX)
+   const u32 addr = GetNetworkIpAddress();
+   const u32 prefix_length = GetNetworkPrefixLength();
+   const u32 netmask = (1 << prefix_length) - 1;
+@@ -1115,7 +1115,8 @@ IPCReply NetIPTopDevice::HandleGetInterfaceOptRequest(const IOCtlVRequest& reque
+         FREE(AdapterAddresses);
+       }
+     }
+-#elif (defined(__linux__) && !defined(ANDROID)) || defined(__APPLE__) || defined(__FreeBSD__) ||   \
++#elif (defined(__linux__) && !defined(ANDROID) && !defined(DOLPHIN_TERMUX)) ||                  \
++    defined(__APPLE__) || defined(__FreeBSD__) || \
+     defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)
+     if (!Core::WantsDeterminism())
+     {
+diff --git a/Source/Core/Core/USBUtils.cpp b/Source/Core/Core/USBUtils.cpp
+index 29fe3f862d..0af01a5a97 100644
+--- a/Source/Core/Core/USBUtils.cpp
++++ b/Source/Core/Core/USBUtils.cpp
+@@ -17,9 +17,11 @@
+ #ifdef HAVE_LIBUDEV
+ #include <libudev.h>
+ #endif
++
+ #ifdef __LIBUSB__
+ #include <libusb.h>
+ #endif
++
+ #ifdef _WIN32
+ #include <cfgmgr32.h>
+ #include <devpkey.h>
+@@ -294,4 +296,16 @@ std::vector<DeviceInfo> ListDevices(const std::function<bool(const DeviceInfo&)>
+   });
+ }
+ #endif
++#ifndef __LIBUSB__
++std::vector<DeviceInfo>
++ListDevices(const std::function<bool(const struct libusb_device_descriptor&)>&)
++{
++  return {};
++}
++
++std::vector<DeviceInfo> ListDevices(const std::function<bool(const DeviceInfo&)>&)
++{
++  return {};
++}
++#endif
+ }  // namespace USBUtils
+diff --git a/Source/Core/DolphinNoGUI/MainNoGUI.cpp b/Source/Core/DolphinNoGUI/MainNoGUI.cpp
+index 3bf40ea0d4..6ab6e7420d 100644
+--- a/Source/Core/DolphinNoGUI/MainNoGUI.cpp
++++ b/Source/Core/DolphinNoGUI/MainNoGUI.cpp
+@@ -160,7 +160,7 @@ static std::unique_ptr<Platform> GetPlatform(const optparse::Values& options)
+     return Platform::CreateX11Platform();
+ #endif
+ 
+-#ifdef __linux__
++#if defined(__linux__) && !defined(DOLPHIN_TERMUX)
+   if (platform_name == "fbdev" || platform_name.empty())
+     return Platform::CreateFBDevPlatform();
+ #endif
+diff --git a/Source/Core/DolphinQt/CMakeLists.txt b/Source/Core/DolphinQt/CMakeLists.txt
+index 43463c643a..4faf17fcf1 100644
+--- a/Source/Core/DolphinQt/CMakeLists.txt
++++ b/Source/Core/DolphinQt/CMakeLists.txt
+@@ -502,7 +502,7 @@ if (MSVC)
+   target_compile_options(dolphin-emu PRIVATE "/GR")
+ endif()
+ 
+-if (NOT APPLE AND NOT ANDROID)
++if (NOT APPLE AND (NOT ANDROID OR NOT ANDROID_NOT_TERMUX))
+   # Symlink Sys
+   add_custom_command(TARGET dolphin-emu POST_BUILD
+     COMMAND ${CMAKE_COMMAND}
+diff --git a/Source/Core/InputCommon/CMakeLists.txt b/Source/Core/InputCommon/CMakeLists.txt
+index 5cc6b66ca6..c742eb0a17 100644
+--- a/Source/Core/InputCommon/CMakeLists.txt
++++ b/Source/Core/InputCommon/CMakeLists.txt
+@@ -1,7 +1,6 @@
+ add_library(inputcommon
+   DynamicInputTextureManager.cpp
+   DynamicInputTextureManager.h
+-  GCAdapter.cpp
+   GCAdapter.h
+   ImageOperations.cpp
+   ImageOperations.h
+@@ -87,6 +86,12 @@ PRIVATE
+   spng::spng
+ )
+ 
++if(NOT ANDROID_NOT_TERMUX)
++  target_sources(inputcommon PRIVATE GCAdapter.cpp)
++else()
++  target_sources(inputcommon PRIVATE GCAdapterStub.cpp)
++endif()
++
+ if(WIN32)
+   target_sources(inputcommon PRIVATE
+     ControllerInterface/DInput/DInput.cpp
+@@ -131,7 +136,7 @@ elseif(X11_FOUND)
+     ControllerInterface/Xlib/XInput2.h
+   )
+   target_link_libraries(inputcommon PRIVATE PkgConfig::X11_INPUT)
+-elseif(ANDROID)
++elseif(ANDROID_NOT_TERMUX)
+   target_compile_definitions(inputcommon PRIVATE -DCIFACE_USE_ANDROID)
+   target_sources(inputcommon PRIVATE
+     ControllerInterface/Android/Android.cpp
+@@ -144,7 +149,7 @@ elseif(ANDROID)
+   )
+ endif()
+ 
+-if(NOT ANDROID)
++if(TARGET LibUSB::LibUSB)
+   target_link_libraries(inputcommon PUBLIC LibUSB::LibUSB)
+ endif()
+ 
+diff --git a/Source/Core/InputCommon/GCAdapter.cpp b/Source/Core/InputCommon/GCAdapter.cpp
+index dbffc4d81d..23b9ea1da0 100644
+--- a/Source/Core/InputCommon/GCAdapter.cpp
++++ b/Source/Core/InputCommon/GCAdapter.cpp
+@@ -3,7 +3,7 @@
+ 
+ #include "InputCommon/GCAdapter.h"
+ 
+-#ifndef ANDROID
++#if !defined(ANDROID) || defined(DOLPHIN_TERMUX)
+ #define GCADAPTER_USE_LIBUSB_IMPLEMENTATION true
+ #define GCADAPTER_USE_ANDROID_IMPLEMENTATION false
+ #else
+diff --git a/Source/Core/VideoBackends/Vulkan/CMakeLists.txt b/Source/Core/VideoBackends/Vulkan/CMakeLists.txt
+index 5f5583f2b0..de8b2ea089 100644
+--- a/Source/Core/VideoBackends/Vulkan/CMakeLists.txt
++++ b/Source/Core/VideoBackends/Vulkan/CMakeLists.txt
+@@ -46,7 +46,7 @@ PRIVATE
+   xxhash::xxhash
+ )
+ 
+-if (ANDROID AND _M_ARM_64)
++if (ANDROID_NOT_TERMUX AND _M_ARM_64)
+   target_link_libraries(videovulkan
+   PRIVATE
+       adrenotools
+
+# ===== dirty submodule: Externals/libusb/libusb =====
+diff --git a/libusb/os/linux_usbfs.c b/libusb/os/linux_usbfs.c
+index 049d565..2253e1e 100644
+--- a/libusb/os/linux_usbfs.c
++++ b/libusb/os/linux_usbfs.c
+@@ -26,6 +26,7 @@
+ #include "linux_usbfs.h"
+ 
+ #include <alloca.h>
++#include <bits/fcntl.h>
+ #include <ctype.h>
+ #include <dirent.h>
+ #include <errno.h>
+@@ -74,6 +75,7 @@
+ 
+ #define USBDEV_PATH		"/dev"
+ #define USB_DEVTMPFS_PATH	"/dev/bus/usb"
++#define TERMUX_USB_ENV	"TERMUX_USB_FD"
+ 
+ /* use usbdev*.* device names in /dev instead of the usbfs bus directories */
+ static int usbdev_names = 0;
+@@ -104,6 +106,7 @@ static int detach_kernel_driver_and_claim(struct libusb_device_handle *, uint8_t
+ #if !defined(HAVE_LIBUDEV)
+ static int linux_default_scan_devices(struct libusb_context *ctx);
+ #endif
++static int linux_termux_scan_devices(struct libusb_context *ctx);
+ 
+ struct kernel_version {
+ 	int major;
+@@ -127,6 +130,7 @@ struct linux_device_priv {
+ 	size_t descriptors_len;
+ 	struct config_descriptor *config_descriptors;
+ 	int active_config; /* cache val for !sysfs_available  */
++	int termux_fd;
+ };
+ 
+ struct linux_device_handle_priv {
+@@ -187,6 +191,16 @@ static int get_usbfs_fd(struct libusb_device *dev, int access_mode, int silent)
+ 	struct libusb_context *ctx = DEVICE_CTX(dev);
+ 	char path[24];
+ 	int fd;
++	struct linux_device_priv *priv = usbi_get_device_priv(dev);
++
++	if ((fd = priv->termux_fd) != -1) {
++		fd = dup(priv->termux_fd);
++		if (fd == -1) {
++			usbi_err(ctx, "unable to duplicate termux usb fd: %s", strerror(errno));
++			return LIBUSB_ERROR_IO;
++		}
++		return fd;
++	}
+ 
+ 	if (usbdev_names)
+ 		snprintf(path, sizeof(path), USBDEV_PATH "/usbdev%u.%u",
+@@ -457,6 +471,10 @@ static int linux_scan_devices(struct libusb_context *ctx)
+ 	int ret;
+ 
+ 	usbi_mutex_static_lock(&linux_hotplug_lock);
++	if (getenv(TERMUX_USB_ENV)) {
++		ret = linux_termux_scan_devices(ctx);
++		goto out;
++	}
+ 
+ #if defined(HAVE_LIBUDEV)
+ 	ret = linux_udev_scan_devices(ctx);
+@@ -464,6 +482,7 @@ static int linux_scan_devices(struct libusb_context *ctx)
+ 	ret = linux_default_scan_devices(ctx);
+ #endif
+ 
++	out:
+ 	usbi_mutex_static_unlock(&linux_hotplug_lock);
+ 
+ 	return ret;
+@@ -915,6 +934,7 @@ static int initialize_device(struct libusb_device *dev, uint8_t busnum,
+ 	size_t alloc_len;
+ 	int fd, speed, r;
+ 	ssize_t nb;
++	priv->termux_fd = -1;
+ 
+ 	dev->bus_number = busnum;
+ 	dev->device_address = devaddr;
+@@ -1338,6 +1358,43 @@ static int linux_default_scan_devices(struct libusb_context *ctx)
+ }
+ #endif
+ 
++#define TERMUX_USB_PREFIX "/dev/bus/usb/"
++static int linux_termux_scan_devices(struct libusb_context *ctx)
++{
++	char *end;
++	const char *value = getenv(TERMUX_USB_ENV);
++	int fd = (int)strtol(value, &end, 10);
++	uint8_t busnum, devaddr;
++	char proc_path[PATH_MAX], usbfs_path[PATH_MAX];
++	struct libusb_device *dev;
++	struct linux_device_priv *priv;
++	int r;
++
++	if (!value || *value == '\0' || *end != '\0' || fd < 0)
++		return LIBUSB_ERROR_NO_DEVICE;
++	snprintf(proc_path, sizeof(proc_path), "/proc/self/fd/%d", fd);
++	if (readlink(proc_path, usbfs_path, sizeof(usbfs_path)) < 0 ||
++		strncmp(TERMUX_USB_PREFIX, usbfs_path, strlen(TERMUX_USB_PREFIX)) != 0 ||
++		sscanf(usbfs_path, "/dev/bus/usb/%hhu/%hhu", &busnum, &devaddr) != 2)
++		return LIBUSB_ERROR_IO;
++	dev = usbi_alloc_device(ctx, ((unsigned long)busnum << 8) | devaddr);
++	if (!dev)
++		return LIBUSB_ERROR_NO_MEM;
++	r = initialize_device(dev, busnum, devaddr, NULL, fd);
++	if (r < 0) {
++		libusb_unref_device(dev);
++		return r;
++	}
++	priv = usbi_get_device_priv(dev);
++	priv->termux_fd = fd;
++	r = usbi_sanitize_device(dev);
++	if (r < 0)
++		libusb_unref_device(dev);
++	else
++		usbi_connect_device(dev);
++	return r;
++}
++
+ static int initialize_handle(struct libusb_device_handle *handle, int fd)
+ {
+ 	struct linux_device_handle_priv *hpriv = usbi_get_device_handle_priv(handle);
+
+# ===== dirty submodule: Externals/mGBA/mgba =====
+diff --git a/include/mgba-util/formatting.h b/include/mgba-util/formatting.h
+index 6eb01ff..ee377de 100644
+--- a/include/mgba-util/formatting.h
++++ b/include/mgba-util/formatting.h
+@@ -20,7 +20,7 @@ typedef const char* locale_t;
+ 
+ int ftostr_l(char* restrict str, size_t size, float f, locale_t locale);
+ 
+-#ifndef HAVE_STRTOF_L
++#if !defined(HAVE_STRTOF_L) && !defined(__BIONIC__)
+ float strtof_l(const char* restrict str, char** restrict end, locale_t locale);
+ #endif
+ 
+diff --git a/src/util/formatting.c b/src/util/formatting.c
+index 2506ddc..d9db393 100644
+--- a/src/util/formatting.c
++++ b/src/util/formatting.c
+@@ -26,7 +26,7 @@ int ftostr_l(char* restrict str, size_t size, float f, locale_t locale) {
+ #endif
+ }
+ 
+-#ifndef HAVE_STRTOF_L
++#if !defined(HAVE_STRTOF_L) && !defined(__BIONIC__)
+ float strtof_l(const char* restrict str, char** restrict end, locale_t locale) {
+ #ifdef HAVE_USELOCALE
+ 	locale_t old = uselocale(locale);
+
+# ===== untracked file: Source/Core/InputCommon/GCAdapterStub.cpp =====
+diff --git a/Source/Core/InputCommon/GCAdapterStub.cpp b/Source/Core/InputCommon/GCAdapterStub.cpp
+new file mode 100644
+index 0000000000..92245ac1c0
+--- /dev/null
++++ b/Source/Core/InputCommon/GCAdapterStub.cpp
+@@ -0,0 +1,25 @@
++// Copyright 2026 Dolphin Emulator Project
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include "InputCommon/GCAdapter.h"
++
++#include "InputCommon/GCPadStatus.h"
++
++namespace GCAdapter
++{
++void Init() {}
++void ResetRumble() {}
++void Shutdown() {}
++void SetAdapterCallback(std::function<void(void)>) {}
++GCPadStatus Input(int) { return {}; }
++void Output(int, u8) {}
++bool IsDetected(const char** error_message)
++{
++  if (error_message)
++    *error_message = nullptr;
++  return false;
++}
++bool DeviceConnected(int) { return false; }
++void ResetDeviceType(int) {}
++double GetCurrentPollRate() { return 0.0; }
++}  // namespace GCAdapter

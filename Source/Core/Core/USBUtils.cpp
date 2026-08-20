@@ -17,9 +17,11 @@
 #ifdef HAVE_LIBUDEV
 #include <libudev.h>
 #endif
+
 #ifdef __LIBUSB__
 #include <libusb.h>
 #endif
+
 #ifdef _WIN32
 #include <cfgmgr32.h>
 #include <devpkey.h>
@@ -292,6 +294,18 @@ std::vector<DeviceInfo> ListDevices(const std::function<bool(const DeviceInfo&)>
     const DeviceInfo info{desc.idVendor, desc.idProduct};
     return filter(info);
   });
+}
+#endif
+#ifndef __LIBUSB__
+std::vector<DeviceInfo>
+ListDevices(const std::function<bool(const struct libusb_device_descriptor&)>&)
+{
+  return {};
+}
+
+std::vector<DeviceInfo> ListDevices(const std::function<bool(const DeviceInfo&)>&)
+{
+  return {};
 }
 #endif
 }  // namespace USBUtils
