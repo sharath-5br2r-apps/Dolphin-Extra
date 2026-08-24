@@ -270,7 +270,7 @@ jobs:
             vs_arch: x64
             bin_dir: x64
             cmake_arch_flags: ""
-          - arch: arm64
+          - arch: arm64-v8a
             runner: windows-arm64
             vs_arch: arm64
             bin_dir: ARM64
@@ -365,7 +365,7 @@ jobs:
             runner: ubuntu-latest
             target_triple: ""
             cmake_flags: ""
-          - arch: arm64
+          - arch: arm64-v8a
             runner: ubuntu-24.04-arm
             target_triple: ""
             cmake_flags: ""
