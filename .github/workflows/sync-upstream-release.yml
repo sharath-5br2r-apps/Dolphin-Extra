@@ -447,10 +447,8 @@ jobs:
           apks = glob.glob("./release-files/*.apk")
           changelog = open("release_notes.md").read() if os.path.exists("release_notes.md") else ""
           applied_patches = [
-              "Scoped Storage / Internal Storage / SD Card Custom Location",
-              "Games on Wii Menu Patch",
-              "SDL Generic Controller Backend Enabled",
-              "Standalone CLI Dolphin Tool Built-in"
+              "Custom Storage Location (Scoped Storage / Internal Storage / SD Card)",
+              "Better Wii Menu (Games on Wii Menu Patch)"
           ]
 
           for apk in apks:
