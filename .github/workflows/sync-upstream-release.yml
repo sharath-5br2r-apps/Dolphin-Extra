@@ -115,7 +115,6 @@ jobs:
           git remote add upstream https://github.com/dolphin-emu/dolphin.git || true
           PR_JSON=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls/${{ needs.check.outputs.pr_number }}")
           MERGE_SHA=$(echo "$PR_JSON" | jq -r '.merge_commit_sha // empty')
-          BASE_SHA=$(echo "$PR_JSON" | jq -r '.base.sha // empty')
 
           if [ -n "$MERGE_SHA" ] && [ "$MERGE_SHA" != "null" ]; then
             echo "Fetching upstream merge commit $MERGE_SHA..."
@@ -127,18 +126,20 @@ jobs:
             echo "target_ref=upstream-pr-${{ needs.check.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create fresh release-sync branch from master
-        run: git checkout -B release-sync master
+      - name: Create fresh release-sync branch starting directly from upstream codebase at target commit
+        run: |
+          git checkout -B release-sync "${{ steps.pr_sha.outputs.target_ref }}"
 
-      - name: Merge upstream code at commit
+      - name: Apply custom patch commits onto release-sync branch
         id: merge
         run: |
           set +e
-          git merge "${{ steps.pr_sha.outputs.target_ref }}" --no-edit -m "Merge upstream PR #${{ needs.check.outputs.pr_number }} code at merge commit"
+          # Cherry-pick all custom commits from master that differ from upstream master
+          git cherry-pick master
           status=$?
           set -e
           if [ $status -ne 0 ]; then
-            git merge --abort || true
+            git cherry-pick --abort || true
             echo "conflict=true" >> "$GITHUB_OUTPUT"
           else
             echo "conflict=false" >> "$GITHUB_OUTPUT"
