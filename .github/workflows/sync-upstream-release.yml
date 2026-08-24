@@ -437,13 +437,54 @@ jobs:
 
           echo "This is an unofficial community build, not affiliated with the Dolphin team." >> release_notes.md
 
+      - name: Generate build.json
+        run: |
+          set -euo pipefail
+          python3 -c '
+          import os, json, glob, subprocess
+
+          build_json = {}
+          apks = glob.glob("./release-files/*.apk")
+          changelog = open("release_notes.md").read() if os.path.exists("release_notes.md") else ""
+          applied_patches = [
+              "Scoped Storage / Internal Storage / SD Card Custom Location",
+              "Games on Wii Menu Patch",
+              "SDL Generic Controller Backend Enabled",
+              "Standalone CLI Dolphin Tool Built-in"
+          ]
+
+          for apk in apks:
+              filename = os.path.basename(apk)
+              name = filename
+              arch = "universal"
+              if "arm64" in filename.lower():
+                  arch = "arm64-v8a"
+              elif "x86_64" in filename.lower():
+                  arch = "x86_64"
+
+              entry_key = filename.lower()
+              build_json[entry_key] = {
+                  "name": name,
+                  "arch": arch,
+                  "ext": "apk",
+                  "version": "${{ needs.check.outputs.release_name }}",
+                  "min_sdk": "21",
+                  "patches": "dolphin-extra",
+                  "changelog": changelog,
+                  "applied_patches": applied_patches
+              }
+
+          with open("build.json", "w") as f:
+              json.dump(build_json, f, indent=2)
+          '
+          cp build.json ./release-files/build.json
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "${{ needs.check.outputs.release_tag }}"
           name: "${{ needs.check.outputs.release_name }}"
-          target_commitish: release-sync
+          target_commitish: master
           prerelease: false
           make_latest: true
           files: ./release-files/*
