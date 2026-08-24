@@ -496,18 +496,22 @@ jobs:
                       print(f"zip inspection failed: {e}")
 
               entry_key = filename.lower()
-              build_json[entry_key] = {
+              ext = filename.split(".")[-1] if "." in filename else "apk"
+              meta_item = {
                   "name": name,
                   "arch": arch,
-                  "ext": "apk",
+                  "ext": ext,
                   "version": "${{ needs.check.outputs.release_name }}",
-                  "min_sdk": min_sdk,
-                  "densities": densities,
-                  "native_libraries": native_libraries,
                   "patches": "dolphin-extra",
                   "changelog": changelog,
                   "applied_patches": applied_patches
               }
+              if ext.lower() in ["apk", "apks", "xapk", "apkm"]:
+                  meta_item["min_sdk"] = min_sdk
+                  meta_item["densities"] = densities
+                  meta_item["native_libraries"] = native_libraries
+
+              build_json[entry_key] = meta_item
 
           with open("build.json", "w") as f:
               json.dump(build_json, f, indent=2)
