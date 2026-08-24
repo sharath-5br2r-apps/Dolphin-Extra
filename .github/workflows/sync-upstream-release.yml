@@ -130,16 +130,15 @@ jobs:
         run: |
           git checkout -B release-sync "${{ steps.pr_sha.outputs.target_ref }}"
 
-      - name: Apply custom patch commits onto release-sync branch
+      - name: Merge master branch onto release-sync branch
         id: merge
         run: |
           set +e
-          # Cherry-pick all custom commits from master that differ from upstream master
-          git cherry-pick master
+          git merge master --no-edit -m "Merge master branch with custom patches into upstream PR #${{ needs.check.outputs.pr_number }}"
           status=$?
           set -e
           if [ $status -ne 0 ]; then
-            git cherry-pick --abort || true
+            git merge --abort || true
             echo "conflict=true" >> "$GITHUB_OUTPUT"
           else
             echo "conflict=false" >> "$GITHUB_OUTPUT"
