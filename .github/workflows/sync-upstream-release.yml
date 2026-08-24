@@ -109,19 +109,32 @@ jobs:
           git branch -D release-sync 2>/dev/null || true
           git push origin --delete release-sync 2>/dev/null || true
 
-      - name: Fetch upstream PR branch
+      - name: Fetch upstream base commit & PR merge commit
+        id: pr_sha
         run: |
-          git remote add upstream https://github.com/dolphin-emu/dolphin.git
-          git fetch upstream "pull/${{ needs.check.outputs.pr_number }}/head:upstream-pr-${{ needs.check.outputs.pr_number }}" --quiet
+          git remote add upstream https://github.com/dolphin-emu/dolphin.git || true
+          PR_JSON=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls/${{ needs.check.outputs.pr_number }}")
+          MERGE_SHA=$(echo "$PR_JSON" | jq -r '.merge_commit_sha // empty')
+          BASE_SHA=$(echo "$PR_JSON" | jq -r '.base.sha // empty')
+
+          if [ -n "$MERGE_SHA" ] && [ "$MERGE_SHA" != "null" ]; then
+            echo "Fetching upstream merge commit $MERGE_SHA..."
+            git fetch upstream "$MERGE_SHA" --quiet
+            echo "target_ref=$MERGE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "Fetching upstream PR head branch..."
+            git fetch upstream "pull/${{ needs.check.outputs.pr_number }}/head:upstream-pr-${{ needs.check.outputs.pr_number }}" --quiet
+            echo "target_ref=upstream-pr-${{ needs.check.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create fresh release-sync branch from master
         run: git checkout -B release-sync master
 
-      - name: Merge upstream PR branch
+      - name: Merge upstream code at commit
         id: merge
         run: |
           set +e
-          git merge "upstream-pr-${{ needs.check.outputs.pr_number }}" --no-edit -m "Merge upstream PR #${{ needs.check.outputs.pr_number }}"
+          git merge "${{ steps.pr_sha.outputs.target_ref }}" --no-edit -m "Merge upstream PR #${{ needs.check.outputs.pr_number }} code at merge commit"
           status=$?
           set -e
           if [ $status -ne 0 ]; then
