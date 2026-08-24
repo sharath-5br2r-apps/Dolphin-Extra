@@ -112,7 +112,10 @@ jobs:
       - name: Fetch upstream base commit & PR merge commit
         id: pr_sha
         run: |
+          # Rename initial local master branch to custom-patches to preserve custom changes
+          git branch -m master custom-patches
           git remote add upstream https://github.com/dolphin-emu/dolphin.git || true
+          git fetch upstream master:master --quiet
           PR_JSON=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls/${{ needs.check.outputs.pr_number }}")
           MERGE_SHA=$(echo "$PR_JSON" | jq -r '.merge_commit_sha // empty')
 
@@ -130,11 +133,11 @@ jobs:
         run: |
           git checkout -B release-sync "${{ steps.pr_sha.outputs.target_ref }}"
 
-      - name: Merge master branch onto release-sync branch
+      - name: Merge custom patches onto release-sync branch
         id: merge
         run: |
           set +e
-          git merge master --no-edit -m "Merge master branch with custom patches into upstream PR #${{ needs.check.outputs.pr_number }}"
+          git merge custom-patches --no-edit -m "Merge custom patches into upstream PR #${{ needs.check.outputs.pr_number }}"
           status=$?
           set -e
           if [ $status -ne 0 ]; then
