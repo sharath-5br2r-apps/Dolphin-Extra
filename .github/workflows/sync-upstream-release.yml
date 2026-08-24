@@ -271,7 +271,7 @@ jobs:
             bin_dir: x64
             cmake_arch_flags: ""
           - arch: arm64-v8a
-            runner: windows-arm64
+            runner: windows-11-vs2026-arm
             vs_arch: arm64
             bin_dir: ARM64
             cmake_arch_flags: "-A ARM64"
