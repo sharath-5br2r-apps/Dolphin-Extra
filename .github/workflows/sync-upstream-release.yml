@@ -266,7 +266,7 @@ jobs:
       matrix:
         include:
           - arch: x86_64
-            runner: windows-2025
+            runner: windows-latest
             vs_arch: x64
             bin_dir: x64
             cmake_arch_flags: ""
