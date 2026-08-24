@@ -260,16 +260,18 @@ jobs:
   windows:
     needs: [check, sync]
     if: always() && needs.sync.result == 'success'
-    runs-on: windows-2022
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: x86_64
+            runner: windows-2022
             vs_arch: x64
             bin_dir: x64
             cmake_arch_flags: ""
           - arch: arm64
+            runner: windows-arm64
             vs_arch: arm64
             bin_dir: ARM64
             cmake_arch_flags: "-A ARM64"
@@ -354,17 +356,19 @@ jobs:
   linux:
     needs: [check, sync]
     if: always() && needs.sync.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: x86_64
+            runner: ubuntu-latest
             target_triple: ""
             cmake_flags: ""
           - arch: arm64
-            target_triple: "aarch64-linux-gnu"
-            cmake_flags: "-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
+            runner: ubuntu-24.04-arm
+            target_triple: ""
+            cmake_flags: ""
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
