@@ -129,11 +129,11 @@ jobs:
             echo "target_ref=upstream-pr-${{ needs.check.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create fresh release-sync branch starting directly from upstream codebase at target commit
+      - name: Create fresh master branch starting directly from upstream codebase at target commit
         run: |
-          git checkout -B release-sync "${{ steps.pr_sha.outputs.target_ref }}"
+          git checkout -B master "${{ steps.pr_sha.outputs.target_ref }}"
 
-      - name: Merge custom patches onto release-sync branch
+      - name: Merge custom patches onto master branch
         id: merge
         run: |
           set +e
@@ -156,8 +156,8 @@ jobs:
       - name: Update submodules
         run: git submodule update --init --recursive
 
-      - name: Push release-sync branch
-        run: git push origin release-sync --force
+      - name: Push master branch
+        run: git push origin master --force
 
 
   # ==========================================
@@ -179,10 +179,10 @@ jobs:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
     steps:
-      - name: Checkout release-sync branch
+      - name: Checkout master branch
         uses: actions/checkout@v4
         with:
-          ref: release-sync
+          ref: master
           submodules: recursive
 
       - name: Setup ccache
@@ -279,10 +279,10 @@ jobs:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
     steps:
-      - name: Checkout release-sync branch
+      - name: Checkout master branch
         uses: actions/checkout@v4
         with:
-          ref: release-sync
+          ref: master
           submodules: recursive
 
       - name: Install Dependencies
@@ -374,10 +374,10 @@ jobs:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
     steps:
-      - name: Checkout release-sync branch
+      - name: Checkout master branch
         uses: actions/checkout@v4
         with:
-          ref: release-sync
+          ref: master
           submodules: recursive
 
       - name: Install Dependencies
@@ -465,7 +465,7 @@ jobs:
           set -euo pipefail
           PR_NUM="${{ needs.check.outputs.pr_number }}"
 
-          echo "Built from custom release-sync branch, merged with the custom user data storage location feature (Scoped Storage / Internal Storage / SD Card) and Games on Wii Menu Patch." > release_notes.md
+          echo "Built from custom master branch, merged with the custom user data storage location feature (Scoped Storage / Internal Storage / SD Card) and Games on Wii Menu Patch." > release_notes.md
           echo "" >> release_notes.md
 
           if [ -n "$PR_NUM" ] && [ "$PR_NUM" != "null" ]; then
