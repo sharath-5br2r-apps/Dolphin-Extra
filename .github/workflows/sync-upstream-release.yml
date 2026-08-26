@@ -312,6 +312,7 @@ jobs:
           cmake --build . --target dolphin-emu
 
       - name: "Prepare Windows Artifact Structure"
+        shell: cmd
         working-directory: ${{ github.workspace }}
         run: |
           if exist .\Binary\${{ matrix.bin_dir }}\ (
@@ -322,7 +323,7 @@ jobs:
             cd .\Binary\
           )
           fsutil file createnew FIX-VCRUNTIME140-ERROR.txt 0
-          echo "Download and install this: https://aka.ms/vs/17/release/vc_redist.${{ matrix.vs_arch }}.exe" > .\FIX-VCRUNTIME140-ERROR.txt
+          echo Download and install this: https://aka.ms/vs/17/release/vc_redist.${{ matrix.vs_arch }}.exe > .\FIX-VCRUNTIME140-ERROR.txt
 
       - name: "Package Windows Dolphin (${{ matrix.arch }})"
         shell: powershell
