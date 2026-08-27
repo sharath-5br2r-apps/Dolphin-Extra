@@ -71,9 +71,11 @@ import org.dolphinemu.dolphinemu.features.settings.model.view.SubmenuSetting
 import org.dolphinemu.dolphinemu.features.settings.model.view.SwitchSetting
 import org.dolphinemu.dolphinemu.model.GpuDriverMetadata
 import org.dolphinemu.dolphinemu.utils.BooleanSupplier
+import org.dolphinemu.dolphinemu.utils.DirectoryInitialization
 import org.dolphinemu.dolphinemu.utils.EGLHelper
 import org.dolphinemu.dolphinemu.utils.GpuDriverHelper
 import org.dolphinemu.dolphinemu.utils.GpuDriverInstallResult
+import org.dolphinemu.dolphinemu.utils.Log
 import org.dolphinemu.dolphinemu.utils.ThemeHelper
 import org.dolphinemu.dolphinemu.utils.ThreadUtil
 import org.dolphinemu.dolphinemu.utils.WiiUtils
