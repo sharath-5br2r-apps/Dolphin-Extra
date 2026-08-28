@@ -3,11 +3,15 @@
 package org.dolphinemu.dolphinemu.features.settings.ui
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
 import android.text.TextUtils
+import android.util.Log
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.collection.ArraySet
 import kotlinx.coroutines.CoroutineScope
@@ -67,9 +71,11 @@ import org.dolphinemu.dolphinemu.features.settings.model.view.SubmenuSetting
 import org.dolphinemu.dolphinemu.features.settings.model.view.SwitchSetting
 import org.dolphinemu.dolphinemu.model.GpuDriverMetadata
 import org.dolphinemu.dolphinemu.utils.BooleanSupplier
+import org.dolphinemu.dolphinemu.utils.DirectoryInitialization
 import org.dolphinemu.dolphinemu.utils.EGLHelper
 import org.dolphinemu.dolphinemu.utils.GpuDriverHelper
 import org.dolphinemu.dolphinemu.utils.GpuDriverInstallResult
+import org.dolphinemu.dolphinemu.utils.Log
 import org.dolphinemu.dolphinemu.utils.ThemeHelper
 import org.dolphinemu.dolphinemu.utils.ThreadUtil
 import org.dolphinemu.dolphinemu.utils.WiiUtils
@@ -374,7 +380,82 @@ class SettingsFragmentPresenter(
             ) { UserDataActivity.launch(context) })
     }
 
+    /**
+     * Called by the fragment after the user picks a folder for a custom user data location.
+     * Decodes the tree URI to a real path; if it resolves to real on-device storage we switch to
+     * custom mode and restart. If it can't be decoded (e.g. a cloud provider), we tell the user
+     * and leave the current storage mode untouched.
+     */
+    fun onCustomUserDataFolderPicked(uri: Uri) {
+        Log.info("[CustomLocation] Folder picked, raw URI=$uri")
+        val realParent = DirectoryInitialization.treeUriToRealPath(context, uri)
+        if (realParent == null) {
+            Log.warning("[CustomLocation] Could not decode picked folder to a real path — aborting, mode unchanged")
+            fragmentView.showToastMessage(
+                context.getString(R.string.custom_location_unsupported)
+            )
+            return
+        }
+        Log.info("[CustomLocation] Picked folder decoded OK, committing custom mode + restart")
+        DirectoryInitialization.setCustomUserDir(context, realParent)
+        showStorageRestartDialog()
+    }
+
+    private fun showStorageRestartDialog() {
+        AlertDialog.Builder(context)
+            .setTitle(R.string.storage_restart_title)
+            .setMessage(R.string.storage_restart_message)
+            .setPositiveButton(R.string.storage_restart_button) { _, _ ->
+                val launchIntent = context.packageManager
+                    .getLaunchIntentForPackage(context.packageName)
+                    ?.apply {
+                        addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        )
+                    }
+                if (launchIntent != null) context.startActivity(launchIntent)
+                Process.killProcess(Process.myPid())
+            }
+            .setCancelable(false)
+            .show()
+    }
+
     private fun addGeneralSettings(sl: ArrayList<SettingsItem>) {
+        val hasSdCard = DirectoryInitialization.hasSdCard(context)
+        sl.add(
+            SingleChoiceSetting(
+                context,
+                object : AbstractIntSetting {
+                    override val isOverridden: Boolean = false
+                    override val isRuntimeEditable: Boolean = true
+                    override fun delete(settings: Settings): Boolean {
+                        DirectoryInitialization.setStorageMode(
+                            context,
+                            DirectoryInitialization.USER_DIR_MODE_SCOPED
+                        )
+                        showStorageRestartDialog()
+                        return true
+                    }
+                    override val int: Int
+                        get() = DirectoryInitialization.getStorageMode(context)
+                    override fun setInt(settings: Settings, newValue: Int) {
+                        if (newValue == DirectoryInitialization.USER_DIR_MODE_CUSTOM) {
+                            // Don't persist the mode yet — launch the folder picker first. Only
+                            // once the user picks a location we can decode to a real path do we
+                            // switch to custom mode and restart (see onCustomUserDataFolderPicked).
+                            fragmentView.launchCustomUserDataFolderPicker()
+                            return
+                        }
+                        DirectoryInitialization.setStorageMode(context, newValue)
+                        showStorageRestartDialog()
+                    }
+                },
+                R.string.user_data_storage,
+                R.string.user_data_storage_description,
+                if (hasSdCard) R.array.userDataStorageEntries else R.array.userDataStorageEntriesNoSd,
+                if (hasSdCard) R.array.userDataStorageValues else R.array.userDataStorageValuesNoSd
+            )
+        )
         sl.add(
             SwitchSetting(
                 context,
