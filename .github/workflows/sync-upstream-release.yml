@@ -269,11 +269,13 @@ jobs:
             runner: windows-2025-vs2026
             vs_arch: x64
             bin_dir: x64
+            qt_arch: win64_msvc2022_64
             cmake_arch_flags: ""
           - arch: arm64-v8a
             runner: windows-11-vs2026-arm
             vs_arch: arm64
             bin_dir: ARM64
+            qt_arch: win64_msvc2022_arm64
             cmake_arch_flags: ""
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
@@ -292,7 +294,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
-          arch: 'win64_msvc2019_64'
+          arch: ${{ matrix.qt_arch }}
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
