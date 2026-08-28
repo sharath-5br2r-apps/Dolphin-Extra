@@ -274,7 +274,7 @@ jobs:
             runner: windows-11-vs2026-arm
             vs_arch: arm64
             bin_dir: ARM64
-            cmake_arch_flags: "-DQT_HOST_PATH=%CD%/Externals/Qt/Qt6.8.3/ARM64"
+            cmake_arch_flags: ""
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
@@ -287,6 +287,12 @@ jobs:
 
       - name: Install Dependencies
         run: choco install pkgconfiglite curl ninja nasm -y
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          arch: 'win64_msvc2019_64'
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
