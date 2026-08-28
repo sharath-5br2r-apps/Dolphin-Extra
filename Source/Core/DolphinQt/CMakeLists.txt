@@ -1,8 +1,10 @@
 if (MSVC)
   if(_M_ARM_64)
     list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/Externals/Qt/Qt6.8.3/ARM64")
+    set(QT_HOST_PATH_CMAKE_DIR "${CMAKE_SOURCE_DIR}/Externals/Qt/Qt6.8.3/ARM64/lib/cmake" CACHE PATH "Host Qt CMake dir" FORCE)
   else()
     list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/Externals/Qt/Qt6.8.3/x64")
+    set(QT_HOST_PATH_CMAKE_DIR "${CMAKE_SOURCE_DIR}/Externals/Qt/Qt6.8.3/x64/lib/cmake" CACHE PATH "Host Qt CMake dir" FORCE)
   endif()
 endif()
 

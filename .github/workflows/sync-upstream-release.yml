@@ -276,7 +276,7 @@ jobs:
             vs_arch: arm64
             bin_dir: ARM64
             qt_arch: win64_msvc2022_arm64
-            cmake_arch_flags: "-DQT_HOST_PATH=%QT_HOST_PATH%"
+            cmake_arch_flags: ""
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
@@ -289,21 +289,6 @@ jobs:
 
       - name: Install Dependencies
         run: choco install pkgconfiglite curl ninja nasm -y
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        id: install-qt
-        with:
-          version: '6.8.3'
-          arch: ${{ matrix.qt_arch }}
-
-      - name: Set QT_HOST_PATH
-        shell: powershell
-        run: |
-          $qtHostPath = (Get-Item "$env:Qt6_DIR\..\..\..").FullName
-          $qtHostCmakeDir = (Get-Item "$env:Qt6_DIR\..").FullName
-          echo "QT_HOST_PATH=$qtHostPath" >> $env:GITHUB_ENV
-          echo "QT_HOST_PATH_CMAKE_DIR=$qtHostCmakeDir" >> $env:GITHUB_ENV
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
