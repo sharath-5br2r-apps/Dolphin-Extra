@@ -298,9 +298,12 @@ jobs:
           arch: ${{ matrix.qt_arch }}
 
       - name: Set QT_HOST_PATH
-        shell: cmd
+        shell: powershell
         run: |
-          echo QT_HOST_PATH=%Qt6_DIR%\..\..\..>> %GITHUB_ENV%
+          $qtHostPath = (Get-Item "$env:Qt6_DIR\..\..\..").FullName
+          $qtHostCmakeDir = (Get-Item "$env:Qt6_DIR\..").FullName
+          echo "QT_HOST_PATH=$qtHostPath" >> $env:GITHUB_ENV
+          echo "QT_HOST_PATH_CMAKE_DIR=$qtHostCmakeDir" >> $env:GITHUB_ENV
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
