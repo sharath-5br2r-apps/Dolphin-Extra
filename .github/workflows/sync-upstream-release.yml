@@ -270,13 +270,13 @@ jobs:
             vs_arch: x64
             bin_dir: x64
             qt_arch: win64_msvc2022_64
-            cmake_arch_flags: ""
+            cmake_arch_flags: "-DQT_HOST_PATH=%CD%/Externals/Qt/Qt6.8.3/x64 -DQt6_DIR=%CD%/Externals/Qt/Qt6.8.3/x64/lib/cmake/Qt6 -DCMAKE_PREFIX_PATH=%CD%/Externals/Qt/Qt6.8.3/x64"
           - arch: arm64-v8a
             runner: windows-11-vs2026-arm
             vs_arch: arm64
             bin_dir: ARM64
             qt_arch: win64_msvc2022_arm64
-            cmake_arch_flags: ""
+            cmake_arch_flags: "-DQT_HOST_PATH=%CD%/Externals/Qt/Qt6.8.3/ARM64 -DQt6_DIR=%CD%/Externals/Qt/Qt6.8.3/ARM64/lib/cmake/Qt6 -DCMAKE_PREFIX_PATH=%CD%/Externals/Qt/Qt6.8.3/ARM64"
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
