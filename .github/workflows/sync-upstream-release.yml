@@ -274,7 +274,7 @@ jobs:
             runner: windows-11-vs2026-arm
             vs_arch: arm64
             bin_dir: ARM64
-            cmake_arch_flags: ""
+            cmake_arch_flags: "-DQT_HOST_PATH=%CD%/Externals/Qt/Qt6.8.3/ARM64"
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
