@@ -1,4 +1,4 @@
-app-id: org.projectplusgame.project-plus-dolphin
+app-id: org.DolphinEmu.dolphin-emu
 branch: master
 runtime: org.kde.Platform
 runtime-version: 6.6

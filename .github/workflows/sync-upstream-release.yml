@@ -622,11 +622,126 @@ jobs:
 
 
   # ==========================================
+  # 3F. DOWNSTREAM BUILD JOB - APPIMAGE
+  # ==========================================
+  appimage:
+    needs: [check, sync]
+    if: always() && needs.sync.result == 'success'
+    runs-on: ubuntu-24.04
+    env:
+      yaqti: 6.7.3
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Get Date
+        id: get-date
+        run: echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: build-ccache-${{ steps.get-date.outputs.date }}
+          restore-keys: build-ccache-
+        env:
+          CCACHE_MAXSIZE: 200M
+
+      - name: Install Qt
+        run: |
+          curl -sLO https://files.pythonhosted.org/packages/47/42/351389ca36c7adfc5f4e92d086cdb2bdbde13f1b89ee882f4a1cab2183ac/yaqti-2021.7.29-py3-none-any.whl
+          python3 -m pip install yaqti-2021.7.29-py3-none-any.whl
+          pyver=$(python3 --version | awk '{print $2}')
+          curl -sL https://raw.githubusercontent.com/qurious-pixel/yaqti/fetch/yaqti/fetchers.py -o $HOME/.local/lib/python${pyver%.*}/site-packages/yaqti/fetchers.py
+          python -m yaqti install --os linux --platform desktop --version ${{ env.yaqti }} --modules linux_gcc_64 --set-envs --install-deps
+
+      - name: Install Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential dialog dpkg libbluetooth-dev liblz4-dev liblzma-dev libssl-dev libopus-dev libpng-dev libsystemd-dev \
+          libzip-dev libzstd-dev zlib1g-dev libasound2-dev libpulse-dev pulseaudio p7zip p7zip-full libsfml-dev libminiupnpc-dev libmbedtls-dev libpugixml-dev \
+          libbz2-dev liblzo2-dev libxi-dev libavcodec-dev libudev-dev libusb-1.0-0-dev libevdev-dev libc6-dev libhidapi-dev libavformat-dev libavdevice-dev \
+          libfmt-dev libwayland-dev libxrandr-dev libglu1-mesa-dev libcurl4-openssl-dev x11-utils zenity wget curl git gettext ccache make cmake ninja-build \
+          libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-icccm4 libxcb-image0-dev libxcb-cursor-dev libspng-dev
+
+      - name: Update Patchelf
+        run: |
+          PATCHELFVER=0.14.5
+          curl -sL https://github.com/NixOS/patchelf/releases/download/${PATCHELFVER}/patchelf-${PATCHELFVER}-x86_64.tar.gz -o /tmp/patchelf.tar.gz
+          tar -xvf /tmp/patchelf.tar.gz --directory /tmp/ ./bin/patchelf --strip-components=2
+          sudo mv /tmp/patchelf /usr/bin
+          patchelf --version
+
+      - name: Build Dolphin
+        run: |
+          export Qt_DIR="${{github.workspace}}/qt/${{ env.yaqti }}/gcc_64/lib/cmake/Qt6"
+          mkdir -p "$HOME/.ccache"
+          mkdir build
+          cd build
+          cmake .. -GNinja -DCMAKE_C_COMPILER=/usr/lib/ccache/gcc-13 -DCMAKE_CXX_COMPILER=/usr/lib/ccache/g++-13 -DCMAKE_PREFIX_PATH="${{github.workspace}}/qt/${{ env.yaqti }}/gcc_64/" -DBIN_INSTALL_DIR="install/usr/bin" -DCMAKE_INSTALL_PREFIX="install/usr" -DINC_INSTALL_DIR="install/usr/include" -DLIB_INSTALL_DIR="install/usr/lib" -DPKGCONFIG_INSTALL_DIR="install/usr/lib/pkgconfig" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DENABLE_NOGUI=OFF
+          ninja
+          ninja install
+
+      - name: Package Dolphin-AppImage
+        env:
+          QT_BASE_DIR: /qt/${{ env.yaqti }}/gcc_64
+          QTDIR: $QT_BASE_DIR
+        run: |
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          FILE_NAME="dolphin-extra-linux-vpr${PR_NUM}-x86_64.AppImage"
+
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${GITHUB_WORKSPACE}/qt/${{ env.yaqti }}/gcc_64/lib/
+          export PATH=$QT_BASE_DIR/bin:$PATH
+          sudo ln -sf ${GITHUB_WORKSPACE}/$(find qt/ -name qmake | head -n 1) /usr/bin/qmake
+          
+          cd /tmp
+          curl -sSfLO "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+          chmod a+x linuxdeploy*.AppImage
+          ./linuxdeploy-x86_64.AppImage --appimage-extract
+          curl -sSfL "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage" -o /tmp/squashfs-root/usr/bin/linuxdeploy-plugin-qt.AppImage
+          chmod a+x /tmp/squashfs-root/usr/bin/linuxdeploy-plugin-qt.AppImage
+          
+          cd $GITHUB_WORKSPACE
+          mkdir -p squashfs-root
+          cp -a build/install/usr $GITHUB_WORKSPACE/squashfs-root/
+          if [ -f Data/dolphin-emu.svg ]; then
+            cp Data/dolphin-emu.svg ./squashfs-root/dolphin-emu.svg
+          fi
+          if [ -f Data/dolphin-emu.desktop ]; then
+            cp Data/dolphin-emu.desktop ./squashfs-root/dolphin-emu.desktop
+          fi
+          
+          curl -sSfL https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-x86_64 -o ./squashfs-root/runtime
+          chmod a+x ./squashfs-root/runtime
+          
+          mkdir -p artifact
+          /tmp/squashfs-root/AppRun --appdir="$GITHUB_WORKSPACE"/squashfs-root/ --plugin qt --output appimage || true
+          
+          BUILT_APPIMAGE=$(ls *.AppImage 2>/dev/null | head -n 1)
+          if [ -n "$BUILT_APPIMAGE" ]; then
+            mv "$BUILT_APPIMAGE" "artifact/${FILE_NAME}"
+          fi
+        continue-on-error: true
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage-build
+          path: "./artifact/*.AppImage"
+          retention-days: 1
+
+
+  # ==========================================
   # 4. RELEASE JOB (Uses Upstream Tag & Title Naming)
   # ==========================================
   release:
-    needs: [check, android, windows, linux, macos, flatpak]
-    if: always() && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.linux.result == 'success' || needs.macos.result == 'success')
+    needs: [check, android, windows, linux, macos, flatpak, appimage]
+    if: always() && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.linux.result == 'success' || needs.macos.result == 'success' || needs.appimage.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
