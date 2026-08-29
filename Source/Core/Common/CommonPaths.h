@@ -8,7 +8,11 @@
 #define DIR_SEP_CHR '/'
 
 // The current working directory
+#ifdef __APPLE__
+#define ROOT_DIR "_NSGetExecutablePath"
+#else
 #define ROOT_DIR "."
+#endif
 
 // The normal user directory
 #ifdef _WIN32
@@ -16,9 +20,9 @@
 #elif defined(__APPLE__)
 #define NORMAL_USER_DIR "Library/Application Support/Dolphin"
 #elif defined(ANDROID)
-#define NORMAL_USER_DIR "/sdcard/dolphin-emu"
+#define NORMAL_USER_DIR "/sdcard/project-plus-dolphin"
 #else
-#define NORMAL_USER_DIR "dolphin-emu"
+#define NORMAL_USER_DIR "project-plus-dolphin"
 #endif
 
 // The portable user directory
@@ -92,12 +96,15 @@
 #define WIISDSYNC_DIR "WiiSDSync"
 #define ASSEMBLY_DIR "SavedAssembly"
 #define WIIBANNERS_DIR "WiiBanners"
+#define NETPLAY_SAVE_DIR "NetplaySave"
+#define LAUNCHER_DIR "Launcher"
+
 
 // This one is only used to remove it if it was present
 #define SHADERCACHE_LEGACY_DIR "ShaderCache"
 
 // The theme directory used by default
-#define DEFAULT_THEME_DIR "Clean"
+#define DEFAULT_THEME_DIR "Clean Emerald"
 
 // Filenames
 // Files in the directory returned by GetUserPath(D_CONFIG_IDX)
@@ -147,12 +154,14 @@
 
 #define WII_STATE "state.dat"
 
-#define WII_SD_CARD_IMAGE "WiiSD.raw"
+#define WII_SD_CARD_IMAGE "sd.raw"
 #define WII_BTDINF_BACKUP "btdinf.bak"
 
 #define WII_SETTING "setting.txt"
 
 #define GECKO_CODE_HANDLER "codehandler.bin"
+
+#define BRAWL_SAVE_FILE "autosv0.bin"
 
 // Subdirs in Sys
 #define GC_SYS_DIR "GC"

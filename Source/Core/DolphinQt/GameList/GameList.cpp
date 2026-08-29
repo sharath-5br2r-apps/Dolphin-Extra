@@ -308,8 +308,8 @@ void GameList::UpdateColumnVisibility()
 void GameList::MakeEmptyView()
 {
   const QString refreshing_msg = tr("Refreshing...");
-  const QString empty_msg = tr("Dolphin could not find any GameCube/Wii ISOs or WADs.\n"
-                               "Double-click here to set a games directory...");
+  const QString empty_msg = tr("Your install could not automatically route to the P+ launcher path.\n"
+                               "Double-click here and navigate to the User/Launcher folder.");
 
   m_empty = new QLabel(this);
   m_empty->setText(refreshing_msg);

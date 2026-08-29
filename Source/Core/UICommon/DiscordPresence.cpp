@@ -101,8 +101,16 @@ std::string ArtworkForGameId()
   const bool is_wii = Core::System::GetInstance().IsWii();
   const std::string region_code = SConfig::GetInstance().GetGameTDBImageRegionCode(is_wii, region);
 
-  static constexpr char cover_url[] = "https://discord.dolphin-emu.org/cover-art/{}/{}.png";
-  return fmt::format(cover_url, region_code, SConfig::GetInstance().GetGameTDBID());
+  if (SConfig::GetInstance().GetGameTDBID() == "RSBE01" || "ID-Project+ Netplay Launcher")
+  {
+    static constexpr char cover_url[] = "https://art.gametdb.com/wii/coverB/US/RSBEPL.png";
+    return fmt::format(cover_url, region_code, SConfig::GetInstance().GetGameTDBID());
+  }
+  else
+  {
+    static constexpr char cover_url[] = "https://discord.dolphin-emu.org/cover-art/{}/{}.png";
+    return fmt::format(cover_url, region_code, SConfig::GetInstance().GetGameTDBID());
+  }
 }
 
 }  // namespace
@@ -214,8 +222,15 @@ void UpdateDiscordPresence(int party_size, SecretType type, const std::string& s
   DiscordRichPresence discord_presence = {};
   if (game_artwork.empty())
   {
-    discord_presence.largeImageKey = "dolphin_logo";
-    discord_presence.largeImageText = "Dolphin is an emulator for the GameCube and the Wii.";
+    discord_presence.largeImageKey = "https://art.gametdb.com/wii/coverB/US/RSBEPL.png";
+    discord_presence.largeImageText = "Project+";
+  }
+  else if (SConfig::GetInstance().GetGameID() == "RSBE01" || "ID-Project+ Netplay Launcher")
+  {
+    discord_presence.largeImageKey = "https://art.gametdb.com/wii/coverB/US/RSBEPL.png";
+    discord_presence.largeImageText = "Project+";
+    discord_presence.smallImageKey = "dolphin_logo";
+    discord_presence.smallImageText = "Dolphin is an emulator for the GameCube and the Wii.";
   }
   else
   {
@@ -224,7 +239,14 @@ void UpdateDiscordPresence(int party_size, SecretType type, const std::string& s
     discord_presence.smallImageKey = "dolphin_logo";
     discord_presence.smallImageText = "Dolphin is an emulator for the GameCube and the Wii.";
   }
-  discord_presence.details = title.empty() ? "Not in-game" : title.c_str();
+  if (title.empty())
+    discord_presence.details = "Not in-game";
+  else if (SConfig::GetInstance().GetGameID() == "RSBE01" || "ID-Project+ Netplay Launcher")
+  {
+    discord_presence.details = "Project+";
+  }
+  else
+    discord_presence.details = title.c_str();
   if (reset_timer)
   {
     s_start_timestamp = std::chrono::duration_cast<std::chrono::seconds>(

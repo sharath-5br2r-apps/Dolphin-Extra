@@ -93,6 +93,17 @@ static void TryToSnapToXFBSize(int& width, int& height, int xfb_width, int xfb_h
   }
 }
 
+static float SourceAspectRatioToPM(float aspect)
+{
+  return (19.0f / 15.0f);
+}
+
+static float SourceAspectRatioToPMWide(float aspect)
+{
+  return (69.0f / 40.0f);
+}
+
+
 Presenter::Presenter()
 {
   auto& video_events = GetVideoEvents();
@@ -522,6 +533,14 @@ float Presenter::CalculateDrawAspectRatio(bool allow_stretch) const
       resulting_aspect_ratio =
           m_xfb_entry ? (static_cast<float>(m_last_xfb_width) / m_last_xfb_height) : 1.f;
     }
+    else if (aspect_mode == AspectMode::ForcePM)
+    {
+      resulting_aspect_ratio = SourceAspectRatioToPM(source_aspect_ratio);
+    }
+    else if (aspect_mode == AspectMode::ForcePMWide)
+    {
+      resulting_aspect_ratio = SourceAspectRatioToPMWide(source_aspect_ratio);
+    }
     else
     {
       resulting_aspect_ratio = source_aspect_ratio;
@@ -543,6 +562,8 @@ float Presenter::CalculateDrawAspectRatio(bool allow_stretch) const
       resulting_aspect_ratio /= 2.0;
     }
   }
+  
+  
 
   return resulting_aspect_ratio;
 }
@@ -681,6 +702,7 @@ std::tuple<float, float> Presenter::ApplyStandardAspectCrop(float width, float h
   case AspectMode::ForceStandard:
     expected_aspect = 4.0f / 3.0f;
     break;
+
   // For the custom (relative) case, we want to crop from the native aspect ratio
   // to the specific target one, as they likely have a small difference
   case AspectMode::Custom:

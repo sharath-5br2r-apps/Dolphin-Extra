@@ -42,7 +42,8 @@ void GCPadWiiUConfigDialog::CreateLayout()
   m_layout->addWidget(m_status_label);
   m_layout->addWidget(m_poll_rate_label);
   m_layout->addWidget(m_rumble);
-  m_layout->addWidget(m_simulate_bongos);
+  m_layout->addWidget(m_poll_rate_label);
+  // m_layout->addWidget(m_simulate_bongos); //we're not using bongos for this lol
   m_layout->addWidget(m_button_box);
 
   setLayout(m_layout);
@@ -84,6 +85,7 @@ void GCPadWiiUConfigDialog::UpdateAdapterStatus()
 
   m_rumble->setEnabled(detected);
   m_simulate_bongos->setEnabled(detected);
+  m_poll_rate_label->setHidden(!detected);
 }
 
 void GCPadWiiUConfigDialog::LoadSettings()
