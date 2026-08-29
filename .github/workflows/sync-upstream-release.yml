@@ -284,7 +284,6 @@ jobs:
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
-      Qt6_DIR: ${{ env.Qt6_DIR }}
     steps:
       - name: Checkout master branch
         uses: actions/checkout@v4
