@@ -1,5 +1,5 @@
 if (MSVC)
-  if(_M_ARM_64)
+  if(_M_ARM_64 OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|ARM64|aarch64")
     list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/Externals/Qt/Qt6.8.3/ARM64")
   else()
     list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/Externals/Qt/Qt6.8.3/x64")
