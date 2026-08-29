@@ -300,9 +300,10 @@ jobs:
           key: ccache-windows-${{ matrix.arch }}-${{ runner.os }}
 
       - name: Install Qt
-        uses: jurplel/install-qt@v4
+        uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: '6.8.*'
+          target: 'desktop'
           arch: ${{ matrix.qt_arch }}
           set-env: true
 
