@@ -269,14 +269,16 @@ jobs:
             runner: windows-2025-vs2026
             vs_arch: x64
             bin_dir: x64
-            qt_arch: win64_msvc2022_64
-            cmake_arch_flags: ""
+            use_preset: true
+            configure_cmd: 'cmake --preset ninja-release-x64'
+            build_cmd: 'cmake --build --preset ninja-build-release-x64 --target dolphin-emu'
           - arch: arm64-v8a
-            runner: windows-11-vs2026-arm
-            vs_arch: arm64
+            runner: windows-2025-vs2026
+            vs_arch: x64
             bin_dir: ARM64
-            qt_arch: win64_msvc2022_arm64
-            cmake_arch_flags: ""
+            use_preset: true
+            configure_cmd: 'cmake --preset visualstudio-release-arm64'
+            build_cmd: 'cmake --build build/release/arm64 --config Release --target dolphin-emu'
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
@@ -308,10 +310,8 @@ jobs:
         shell: cmd
         working-directory: ${{ github.workspace }}
         run: |
-          mkdir build
-          cd build
-          cmake -G "Ninja" -DCMAKE_BUILD_TYPE="Release" ${{ matrix.cmake_arch_flags }} ..
-          cmake --build . --target dolphin-emu
+          ${{ matrix.configure_cmd }}
+          ${{ matrix.build_cmd }}
 
       - name: "Prepare Windows Artifact Structure"
         shell: cmd
