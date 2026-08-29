@@ -36,7 +36,7 @@ InstallUpdateDialog::InstallUpdateDialog(QWidget *parent, QString installationDi
       filename(filename),
       downloadUrl(downloadUrl) // Initialize member variables
 {
-    setWindowTitle(QStringLiteral("Project+ Dolphin - Updater"));
+    setWindowTitle(QStringLiteral("Dolphin Emulator - Updater"));
     
     // Create UI components
     QVBoxLayout* layout = new QVBoxLayout(this);
