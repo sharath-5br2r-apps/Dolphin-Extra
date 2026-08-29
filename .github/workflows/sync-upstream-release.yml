@@ -593,40 +593,49 @@ jobs:
   flatpak:
     needs: [check, sync]
     if: always() && needs.sync.result == 'success'
-    runs-on: ubuntu-latest
-    container:
-      image: bilelmoussaoui/flatpak-github-actions:gnome-nightly
-      options: --privileged
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout master branch
         uses: actions/checkout@v4
         with:
           ref: master
 
-      - name: Setup Flatpak remotes
+      - name: Install Flatpak tools
         run: |
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install org.kde.Sdk//5.15 org.kde.Platform//5.15 -y
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.kde.Sdk//6.7 org.kde.Platform//6.7
 
       - name: Pin Flatpak manifest to workflow ref
         run: |
+          REPO_URL="https://github.com/sharath-5br2r-apps/Dolphin-Extra"
           sed -i '/^[[:space:]]*tag:[[:space:]]/d' Distribution/flatpak/flatpak.yml
           sed -i '/^[[:space:]]*commit:[[:space:]]/d' Distribution/flatpak/flatpak.yml
-          sed -i "/^[[:space:]]*url:[[:space:]]*https:\/\/github.com\/Project-Plus-Development-Team\/Project-Plus-Dolphin$/a\\        commit: ${GITHUB_SHA}" Distribution/flatpak/flatpak.yml
+          sed -i "/url:.*Dolphin-Extra/a\\        commit: ${GITHUB_SHA}" Distribution/flatpak/flatpak.yml
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            sed -i "/^[[:space:]]*url:[[:space:]]*https:\/\/github.com\/Project-Plus-Development-Team\/Project-Plus-Dolphin$/a\\        tag: ${GITHUB_REF_NAME}" Distribution/flatpak/flatpak.yml
+            sed -i "/url:.*Dolphin-Extra/a\\        tag: ${GITHUB_REF_NAME}" Distribution/flatpak/flatpak.yml
           fi
 
-      - name: Run Flatpak Builder
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          manifest-path: Distribution/flatpak/flatpak.yml
-          bundle: dolphin-extra-flatpak.flatpak
+      - name: Build Flatpak
+        run: |
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          BUNDLE="dolphin-extra-vpr${PR_NUM}-${{ matrix.arch }}.flatpak"
+          flatpak-builder --user --install-deps-from=flathub --force-clean --repo=flatpak-repo build-flatpak Distribution/flatpak/flatpak.yml
+          flatpak build-bundle --arch=${{ matrix.arch }} flatpak-repo "${BUNDLE}" org.DolphinEmu.dolphin-emu
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flatpak-build
+          name: flatpak-${{ matrix.arch }}-build
           path: "*.flatpak"
           retention-days: 1
 
@@ -637,7 +646,21 @@ jobs:
   appimage:
     needs: [check, sync]
     if: always() && needs.sync.result == 'success'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+            qt_platform: gcc_64
+            qt_module: linux_gcc_64
+            patchelf_arch: x86_64
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            qt_platform: gcc_arm64
+            qt_module: linux_gcc_arm64
+            patchelf_arch: aarch64
     env:
       yaqti: 6.7.3
     steps:
@@ -657,8 +680,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: build-ccache-${{ steps.get-date.outputs.date }}
-          restore-keys: build-ccache-
+          key: build-ccache-appimage-${{ matrix.arch }}-${{ steps.get-date.outputs.date }}
+          restore-keys: build-ccache-appimage-${{ matrix.arch }}-
         env:
           CCACHE_MAXSIZE: 200M
 
@@ -668,7 +691,7 @@ jobs:
           python3 -m pip install yaqti-2021.7.29-py3-none-any.whl
           pyver=$(python3 --version | awk '{print $2}')
           curl -sL https://raw.githubusercontent.com/qurious-pixel/yaqti/fetch/yaqti/fetchers.py -o $HOME/.local/lib/python${pyver%.*}/site-packages/yaqti/fetchers.py
-          python -m yaqti install --os linux --platform desktop --version ${{ env.yaqti }} --modules linux_gcc_64 --set-envs --install-deps
+          python -m yaqti install --os linux --platform desktop --version ${{ env.yaqti }} --modules ${{ matrix.qt_module }} --set-envs --install-deps
 
       - name: Install Packages
         run: |
@@ -682,40 +705,52 @@ jobs:
       - name: Update Patchelf
         run: |
           PATCHELFVER=0.14.5
-          curl -sL https://github.com/NixOS/patchelf/releases/download/${PATCHELFVER}/patchelf-${PATCHELFVER}-x86_64.tar.gz -o /tmp/patchelf.tar.gz
+          curl -sL https://github.com/NixOS/patchelf/releases/download/${PATCHELFVER}/patchelf-${PATCHELFVER}-${{ matrix.patchelf_arch }}.tar.gz -o /tmp/patchelf.tar.gz
           tar -xvf /tmp/patchelf.tar.gz --directory /tmp/ ./bin/patchelf --strip-components=2
           sudo mv /tmp/patchelf /usr/bin
           patchelf --version
 
       - name: Build Dolphin
         run: |
-          export Qt_DIR="${{github.workspace}}/qt/${{ env.yaqti }}/gcc_64/lib/cmake/Qt6"
+          QT_PLATFORM="${{ matrix.qt_platform }}"
+          export Qt_DIR="${{github.workspace}}/qt/${{ env.yaqti }}/${QT_PLATFORM}/lib/cmake/Qt6"
           mkdir -p "$HOME/.ccache"
           mkdir build
           cd build
-          cmake .. -GNinja -DCMAKE_C_COMPILER=/usr/lib/ccache/gcc-13 -DCMAKE_CXX_COMPILER=/usr/lib/ccache/g++-13 -DCMAKE_PREFIX_PATH="${{github.workspace}}/qt/${{ env.yaqti }}/gcc_64/" -DBIN_INSTALL_DIR="install/usr/bin" -DCMAKE_INSTALL_PREFIX="install/usr" -DINC_INSTALL_DIR="install/usr/include" -DLIB_INSTALL_DIR="install/usr/lib" -DPKGCONFIG_INSTALL_DIR="install/usr/lib/pkgconfig" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DENABLE_NOGUI=OFF
+          cmake .. -GNinja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_PREFIX_PATH="${{github.workspace}}/qt/${{ env.yaqti }}/${QT_PLATFORM}/" \
+            -DBIN_INSTALL_DIR="install/usr/bin" \
+            -DCMAKE_INSTALL_PREFIX="install/usr" \
+            -DINC_INSTALL_DIR="install/usr/include" \
+            -DLIB_INSTALL_DIR="install/usr/lib" \
+            -DPKGCONFIG_INSTALL_DIR="install/usr/lib/pkgconfig" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DENABLE_NOGUI=OFF
           ninja
           ninja install
 
       - name: Package Dolphin-AppImage
         env:
-          QT_BASE_DIR: /qt/${{ env.yaqti }}/gcc_64
-          QTDIR: $QT_BASE_DIR
+          QT_BASE_DIR: ${{github.workspace}}/qt/${{ env.yaqti }}/${{ matrix.qt_platform }}
         run: |
+          ARCH="${{ matrix.arch }}"
           PR_NUM="${{ needs.check.outputs.pr_number }}"
-          FILE_NAME="dolphin-extra-linux-vpr${PR_NUM}-x86_64.AppImage"
+          FILE_NAME="dolphin-extra-linux-vpr${PR_NUM}-${ARCH}.AppImage"
 
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${GITHUB_WORKSPACE}/qt/${{ env.yaqti }}/gcc_64/lib/
-          export PATH=$QT_BASE_DIR/bin:$PATH
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${QT_BASE_DIR}/lib/
+          export PATH=${QT_BASE_DIR}/bin:$PATH
           sudo ln -sf ${GITHUB_WORKSPACE}/$(find qt/ -name qmake | head -n 1) /usr/bin/qmake
-          
+
           cd /tmp
-          curl -sSfLO "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
-          chmod a+x linuxdeploy*.AppImage
-          ./linuxdeploy-x86_64.AppImage --appimage-extract
-          curl -sSfL "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage" -o /tmp/squashfs-root/usr/bin/linuxdeploy-plugin-qt.AppImage
+          curl -sSfLO "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${ARCH}.AppImage"
+          chmod a+x linuxdeploy-${ARCH}.AppImage
+          ./linuxdeploy-${ARCH}.AppImage --appimage-extract
+          curl -sSfL "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${ARCH}.AppImage" \
+            -o /tmp/squashfs-root/usr/bin/linuxdeploy-plugin-qt.AppImage
           chmod a+x /tmp/squashfs-root/usr/bin/linuxdeploy-plugin-qt.AppImage
-          
+
           cd $GITHUB_WORKSPACE
           mkdir -p squashfs-root
           cp -a build/install/usr $GITHUB_WORKSPACE/squashfs-root/
@@ -725,13 +760,13 @@ jobs:
           if [ -f Data/dolphin-emu.desktop ]; then
             cp Data/dolphin-emu.desktop ./squashfs-root/dolphin-emu.desktop
           fi
-          
-          curl -sSfL https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-x86_64 -o ./squashfs-root/runtime
+
+          curl -sSfL https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-${ARCH} -o ./squashfs-root/runtime
           chmod a+x ./squashfs-root/runtime
-          
+
           mkdir -p artifact
-          /tmp/squashfs-root/AppRun --appdir="$GITHUB_WORKSPACE"/squashfs-root/ --plugin qt --output appimage || true
-          
+          ARCH=${ARCH} /tmp/squashfs-root/AppRun --appdir="$GITHUB_WORKSPACE"/squashfs-root/ --plugin qt --output appimage || true
+
           BUILT_APPIMAGE=$(ls *.AppImage 2>/dev/null | head -n 1)
           if [ -n "$BUILT_APPIMAGE" ]; then
             mv "$BUILT_APPIMAGE" "artifact/${FILE_NAME}"
@@ -741,7 +776,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: appimage-build
+          name: appimage-${{ matrix.arch }}-build
           path: "./artifact/*.AppImage"
           retention-days: 1
 
