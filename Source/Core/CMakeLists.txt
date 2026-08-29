@@ -52,7 +52,7 @@ if (APPLE AND ENABLE_QT)
     -replace CFBundleExecutable -string Dolphin
     ${DOLPHIN_MAC_BUNDLE}/Contents/Info.plist
     
-    DEPENDS project-plus-dolphin)
+    DEPENDS dolphin-emu)
   
   if (ENABLE_AUTOUPDATE)
     add_dependencies(build_final_bundle MacUpdater)

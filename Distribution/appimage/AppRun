@@ -1,9 +1,9 @@
 #!/bin/bash
 
-mkdir -p $HOME/.local/share/icons/hicolor/scalable/apps && cp $APPDIR/project-plus-dolphin.svg $HOME/.local/share/icons/hicolor/scalable/apps
-mkdir -p $HOME/.local/share/project-plus-dolphin && cp -R $APPDIR/usr/share/project-plus-dolphin $HOME/.local/share/
+mkdir -p $HOME/.local/share/icons/hicolor/scalable/apps && cp $APPDIR/dolphin-emu.svg $HOME/.local/share/icons/hicolor/scalable/apps
+mkdir -p $HOME/.local/share/dolphin-emu && cp -R $APPDIR/usr/share/dolphin-emu $HOME/.local/share/
 
-GITVER=$(wget -qO- https://www.github.com/Project-Plus-Development-Team/Project-Plus-Dolphin/releases/latest | grep '<p>DOLPHIN' | awk '{print $NF}' | cut -d '<' -f 1)
+GITVER=$(wget -qO- https://www.github.com/sharath-5br2r-apps/Dolphin-Extra/releases/latest | grep '<p>DOLPHIN' | awk '{print $NF}' | cut -d '<' -f 1)
 APPVER=$(cat $APPDIR/version.txt)
 
 if [[ -z "$GITVER" ]]; then
