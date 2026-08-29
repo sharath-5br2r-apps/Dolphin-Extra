@@ -271,7 +271,7 @@ jobs:
             qt_arch: win64_msvc2022_64
             bin_dir: x64
             use_preset: true
-            configure_cmd: 'cmake --preset ninja-release-x64 -DQt6_DIR="%Qt6_DIR%" -DCMAKE_PREFIX_PATH="%Qt6_DIR%"'
+            configure_cmd: 'cmake --preset ninja-release-x64 -DQt6_DIR="%Qt6_DIR%"'
             build_cmd: 'cmake --build --preset ninja-build-release-x64 --target dolphin-emu'
           - arch: arm64-v8a
             runner: windows-2025-vs2026
@@ -279,7 +279,7 @@ jobs:
             qt_arch: win64_msvc2022_arm64
             bin_dir: ARM64
             use_preset: true
-            configure_cmd: 'cmake --preset ninja-release-arm64 -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DQt6_DIR="%Qt6_DIR%" -DCMAKE_PREFIX_PATH="%Qt6_DIR%"'
+            configure_cmd: 'cmake --preset ninja-release-arm64 -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DQt6_DIR="%Qt6_DIR%"'
             build_cmd: 'cmake --build --preset ninja-build-release-arm64 --target dolphin-emu'
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
