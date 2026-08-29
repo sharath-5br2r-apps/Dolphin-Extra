@@ -194,9 +194,9 @@
     <ClCompile Include="InfinityBase/InfinityBaseWindow.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MainWindow.cpp" />
-    <ClCompile Include="ProjectPlus/DownloadWorker.cpp" />
-    <ClCompile Include="ProjectPlus/InstallUpdateDialog.cpp" />
-    <ClCompile Include="ProjectPlus/UpdateDialog.cpp" />
+    <ClCompile Include="UpdaterDialogs/DownloadWorker.cpp" />
+    <ClCompile Include="UpdaterDialogs/InstallUpdateDialog.cpp" />
+    <ClCompile Include="UpdaterDialogs/UpdateDialog.cpp" />
     <ClCompile Include="MenuBar.cpp" />
     <ClCompile Include="NetPlay\ChunkedProgressDialog.cpp" />
     <ClCompile Include="NetPlay\GameDigestDialog.cpp" />
@@ -427,9 +427,9 @@
     <QtMoc Include="HotkeyScheduler.h" />
     <QtMoc Include="InfinityBase/InfinityBaseWindow.h" />
     <QtMoc Include="MainWindow.h" />
-    <QtMoc Include="ProjectPlus/DownloadWorker.h" />
-    <QtMoc Include="ProjectPlus/InstallUpdateDialog.h" />
-    <QtMoc Include="ProjectPlus/UpdateDialog.h" />
+    <QtMoc Include="UpdaterDialogs/DownloadWorker.h" />
+    <QtMoc Include="UpdaterDialogs/InstallUpdateDialog.h" />
+    <QtMoc Include="UpdaterDialogs/UpdateDialog.h" />
     <QtMoc Include="MenuBar.h" />
     <QtMoc Include="NetPlay\ChunkedProgressDialog.h" />
     <QtMoc Include="NetPlay\GameDigestDialog.h" />

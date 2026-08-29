@@ -1,5 +1,5 @@
 /*
-*  Project+ Dolphin Self-Updater
+*  Dolphin Self-Updater
 *  Credit to the Mario Party Netplay team for the base code of this updater
 *  Copyright (C) 2025 Tabitha Hanegan <tabithahanegan.com>
 */
