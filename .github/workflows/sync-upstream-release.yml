@@ -268,16 +268,18 @@ jobs:
           - arch: x86_64
             runner: windows-2025-vs2026
             vs_arch: x64
+            qt_arch: win64_msvc2022_64
             bin_dir: x64
             use_preset: true
-            configure_cmd: 'cmake --preset ninja-release-x64'
+            configure_cmd: 'cmake --preset ninja-release-x64 -DQt6_DIR="%Qt6_DIR%"'
             build_cmd: 'cmake --build --preset ninja-build-release-x64 --target dolphin-emu'
           - arch: arm64-v8a
             runner: windows-2025-vs2026
             vs_arch: arm64
+            qt_arch: win64_msvc2022_arm64
             bin_dir: ARM64
             use_preset: true
-            configure_cmd: 'cmake --preset ninja-release-arm64 -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64'
+            configure_cmd: 'cmake --preset ninja-release-arm64 -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DQt6_DIR="%Qt6_DIR%"'
             build_cmd: 'cmake --build --preset ninja-build-release-arm64 --target dolphin-emu'
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
@@ -300,8 +302,9 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt@v4
         with:
-          version: '6.8.0'
-          arch: 'win64_msvc2022_arm64'
+          version: '6.8.3'
+          arch: ${{ matrix.qt_arch }}
+          set-env: true
 
       - uses: egor-tensin/vs-shell@v2
         with:
