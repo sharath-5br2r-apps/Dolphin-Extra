@@ -427,11 +427,206 @@ jobs:
 
 
   # ==========================================
+  # 3D. DOWNSTREAM BUILD JOB - MACOS
+  # ==========================================
+  macos:
+    needs: [check, sync]
+    if: always() && needs.sync.result == 'success'
+    runs-on: macos-15-intel
+    env:
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPRESS: true
+      CCACHE_COMPRESSLEVEL: 9
+      CCACHE_MAXSIZE: 200M
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install Packages
+        env:
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+          HOMEBREW_NO_ANALYTICS: 1
+        run: |
+          brew install gnu-sed
+          if ! brew install ccache ninja libspng; then
+            brew update
+            brew install ccache ninja libspng
+          fi
+
+      - name: Cache Dependencies
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: ~/deps
+          key: macOS deps ${{ hashFiles('.github/workflows/scripts/macos/build-dependencies.sh') }}
+
+      - name: Build Dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: .github/workflows/scripts/macos/build-dependencies.sh
+
+      - name: Cache MoltenVK
+        id: cache-moltenvk
+        uses: actions/cache@v4
+        with:
+          path: ~/moltenvk
+          key: macOS MoltenVK ${{ hashFiles('Externals/MoltenVK') }}
+
+      - name: Build MoltenVK
+        if: steps.cache-moltenvk.outputs.cache-hit != 'true'
+        run: |
+          MVK_VER="$(sed -nr 's/^.*set\(MOLTENVK_VERSION "([^"]+)".*$/\1/p' Externals/MoltenVK/CMakeLists.txt)"
+          if [ -z "$MVK_VER" ]; then
+            echo "::error::Failed to parse MoltenVK version from CMakeLists"
+            exit 1
+          fi
+          git clone --depth 1 --branch "$MVK_VER" https://github.com/KhronosGroup/MoltenVK.git mvk-build
+          pushd mvk-build
+          git apply ../Externals/MoltenVK/patches/*.patch
+          ./fetchDependencies --macos
+          make macos
+          chmod 755 Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib
+          mkdir -p "$HOME/moltenvk/lib/"
+          mv Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib "$HOME/moltenvk/lib/"
+          popd
+          rm -rf mvk-build
+
+      - name: Prepare ccache timestamp
+        id: ccache_cache_timestamp
+        run: echo "timestamp=$(date -u "+%Y-%m-%d-%H;%M;%S")" >> $GITHUB_OUTPUT
+
+      - name: Cache ccache cache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: macOS ccache ${{ steps.ccache_cache_timestamp.outputs.timestamp }}
+          restore-keys: macOS ccache
+
+      - name: Generate CMake Files
+        run: |
+          COMMON_ARGS=(
+            -DCMAKE_PREFIX_PATH="$HOME/deps;$HOME/moltenvk"
+            -DCMAKE_BUILD_TYPE=Release
+            -DUSE_BUNDLED_MOLTENVK=OFF
+            -DMACOS_CODE_SIGNING=OFF
+            -DPOSTPROCESS_BUNDLE=ON
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+            -DUSE_SYSTEM_LIBS=OFF
+            -DUSE_SYSTEM_BZIP2=ON
+            -DUSE_SYSTEM_CURL=ON
+            -DUSE_SYSTEM_ICONV=ON
+            -DUSE_SYSTEM_SDL3=OFF
+            -GNinja
+          )
+
+          cmake -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+                -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
+                -DCMAKE_SYSTEM_NAME=Darwin \
+                -DCMAKE_OSX_DEPLOYMENT_TARGET=11.00 \
+                "${COMMON_ARGS[@]}" \
+                -B build .
+          cmake -DCMAKE_OSX_ARCHITECTURES=arm64 \
+                -DCMAKE_SYSTEM_PROCESSOR=arm64 \
+                -DCMAKE_SYSTEM_NAME=Darwin \
+                -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+                "${COMMON_ARGS[@]}" \
+                -B build-arm .
+
+      - name: Build Dolphin (x86_64)
+        working-directory: build
+        run: |
+          ccache -z
+          ninja dolphin-emu
+          ccache -s
+
+      - name: Build Dolphin (arm64)
+        working-directory: build-arm
+        run: |
+          ccache -z
+          ninja dolphin-emu
+          ccache -s
+
+      - name: Prepare Build Artifacts
+        id: create-artifact
+        run: |
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          lipo -create build/Binaries/DolphinQt.app/Contents/MacOS/DolphinQt \
+                       build-arm/Binaries/DolphinQt.app/Contents/MacOS/DolphinQt \
+                       -o dolphin-universal
+          mv dolphin-universal build/Binaries/DolphinQt.app/Contents/MacOS/DolphinQt
+          APPNAME="dolphin-extra-macos-vpr${PR_NUM}-universal"
+          mv build/Binaries/DolphinQt.app "${APPNAME}.app"
+          tar --options xz:compression-level=9 -cvJf "${APPNAME}.tar.xz" "${APPNAME}.app"
+          mkdir -p artifact
+          mv "${APPNAME}.tar.xz" artifact/
+          echo "name=$APPNAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal-build
+          path: "./artifact/*.tar.xz"
+          retention-days: 1
+
+
+  # ==========================================
+  # 3E. DOWNSTREAM BUILD JOB - FLATPAK
+  # ==========================================
+  flatpak:
+    needs: [check, sync]
+    if: always() && needs.sync.result == 'success'
+    runs-on: ubuntu-latest
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:gnome-nightly
+      options: --privileged
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Setup Flatpak remotes
+        run: |
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install org.kde.Sdk//5.15 org.kde.Platform//5.15 -y
+
+      - name: Pin Flatpak manifest to workflow ref
+        run: |
+          sed -i '/^[[:space:]]*tag:[[:space:]]/d' Distribution/flatpak/flatpak.yml
+          sed -i '/^[[:space:]]*commit:[[:space:]]/d' Distribution/flatpak/flatpak.yml
+          sed -i "/^[[:space:]]*url:[[:space:]]*https:\/\/github.com\/Project-Plus-Development-Team\/Project-Plus-Dolphin$/a\\        commit: ${GITHUB_SHA}" Distribution/flatpak/flatpak.yml
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            sed -i "/^[[:space:]]*url:[[:space:]]*https:\/\/github.com\/Project-Plus-Development-Team\/Project-Plus-Dolphin$/a\\        tag: ${GITHUB_REF_NAME}" Distribution/flatpak/flatpak.yml
+          fi
+
+      - name: Run Flatpak Builder
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: Distribution/flatpak/flatpak.yml
+          bundle: dolphin-extra-flatpak.flatpak
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-build
+          path: "*.flatpak"
+          retention-days: 1
+
+
+  # ==========================================
   # 4. RELEASE JOB (Uses Upstream Tag & Title Naming)
   # ==========================================
   release:
-    needs: [check, android, windows, linux]
-    if: always() && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.linux.result == 'success')
+    needs: [check, android, windows, linux, macos, flatpak]
+    if: always() && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.linux.result == 'success' || needs.macos.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
