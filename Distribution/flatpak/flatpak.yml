@@ -3,9 +3,9 @@ branch: master
 runtime: org.kde.Platform
 runtime-version: 6.6
 sdk: org.kde.Sdk
-command: project-plus-dolphin-wrapper.sh
-rename-desktop-file: project-plus-dolphin.desktop
-rename-icon: project-plus-dolphin
+command: dolphin-emu-wrapper.sh
+rename-desktop-file: org.DolphinEmu.dolphin-emu.desktop
+rename-icon: org.DolphinEmu.dolphin-emu
 finish-args:
   - --device=all # need for controllers
   # the file picker uses portals but the set
@@ -97,74 +97,29 @@ modules:
         url: https://github.com/Unrud/xdg-screensaver-shim/archive/0.0.2.tar.gz
         sha256: 0ed2a69fe6ee6cbffd2fe16f85116db737f17fb1e79bfb812d893cf15c728399
 
-  - name: project-plus-dolphin
+  - name: dolphin-emu
     buildsystem: cmake-ninja
     config-opts:
       - -DCMAKE_BUILD_TYPE=Release
       - -DENABLE_ALSA=OFF
       - -DENABLE_SDL=ON
       - -DENABLE_EVDEV=ON
-      - -DDISTRIBUTOR=Project Plus Development Team
-      - -DCPACK_PACKAGE_CONTACT=Project Plus Development Team
+      - -DDISTRIBUTOR=Dolphin Emulator Project
+      - -DCPACK_PACKAGE_CONTACT=Dolphin Emulator Project
     cleanup:
       - /share/man
     sources:
-      - type: git
-        url: https://github.com/Project-Plus-Development-Team/Project-Plus-Dolphin
-        
-      # TODO: Add x-checker-data
-      # Project Plus SD card
-      #- type: file
-      #  url: https://github.com/jlambert360/FPM-AppImage/releases/download/v3.1.2/sd.tar.gz
-      #  sha256: 389e4025ed3e0a79a1d0646dcc97bbd204fdfad371be72f913f59aa172f531fd            # This is the hash of the tar.gz file not the uncompressed
-
-      # TODO: Add x-checker-data
-      # Project Plus .dol files and icon
-      - type: archive
-        url: https://github.com/jlambert360/FPM-AppImage/releases/download/v3.1.2/Launcher.tar.gz
-        sha256: 1b9dce2fb0eac3ad8cc809826b3b6bfd4ce30dbfc394eaa586e35dcd356fd189                  # This is the hash of the tar.gz file not the uncompressed
-        dest: Launcher
-
-      # TODO: Add x-checker-data
-      # Project Plus ModPack that contains HD textures
-      #- type: archive
-      # url: https://github.com/jlambert360/PPlusReleases/releases/download/v3.1.2/Project+.v3.1.2.Modders.Pack.zip
-      #  sha256: 291549549a88617f8f72cf549023da9af154493b75da7a8192245ed98c101ba3                                    # This is the hash of the zip file not the uncompressed
-      #  dest: ModPack
-
-      # Script that is ran everytime the final Flatpak starts
       - type: file
-        path: project-plus-dolphin-wrapper.sh
-        
-      # Metadata file for Flatpak repos
+        path: dolphin-emu-wrapper.sh
       - type: file
-        path: org.projectplusgame.project-plus-dolphin.metainfo.xml
-
-      # detects whether dolphin is running in a flatpak sandbox
-      # and makes it use xdg directories if it is.
-      # prevents dolphin from attempting to write conf files
-      # in non-writable paths, typically happens when a user
-      # has leftover files from a previous non-flatpak install
-      #- type: script
-      #  commands:
-      #    - |
-      #      for i in {0..9}; do
-      #        test -S $XDG_RUNTIME_DIR/discord-ipc-$i ||
-      #          ln -sf {app/com.discordapp.Discord,$XDG_RUNTIME_DIR}/discord-ipc-$i;
-      #      done
-      #      project-plus-dolphin "$@"
-      #  dest-filename: project-plus-dolphin-wrapper
+        path: org.DolphinEmu.dolphin-emu.metainfo.xml
     post-install:
       - |
-      - install -D -t ${FLATPAK_DEST}/bin/ project-plus-dolphin-wrapper.sh
-      - desktop-file-edit --set-key=Exec --set-value='/app/bin/project-plus-dolphin-wrapper.sh'
-        /app/share/applications/project-plus-dolphin.desktop
-      - desktop-file-edit --set-key=Name --set-value='Project Plus Dolphin'
-        /app/share/applications/project-plus-dolphin.desktop
-      - rm -r ${FLATPAK_DEST}/share/project-plus-dolphin/sys                                                                                       # Remove preinstalled sys directory
-      - mv Data/Sys ${FLATPAK_DEST}/share/project-plus-dolphin/sys/                                                                                # Move Sys directory to correct location (only use without the -DLINUX_LOCAL_DEV=true flag set
-      #- tar --transform="s|sd.raw|WiiSD.raw|" -xf sd.tar.gz -C ${FLATPAK_DEST}/share/project-plus-dolphin/user/Wii/                               # Extract, rename and move SD card to correct location
-      #- mv Launcher ${FLATPAK_DEST}/share/project-plus-dolphin/sys/Wii/                                                                            # Move Launcher directory to correct location
-      #- mkdir -p ${FLATPAK_DEST}/share/project-plus-dolphin/sys/Load/Textures                                                                      # Make directory for HD textures
-      #- mv "ModPack/Full Quality HD Textures" ${FLATPAK_DEST}/share/project-plus-dolphin/sys/Load/Textures/RSBE01/                              	  # Move HD Textures from ModPack to correct location
-      - install -Dm644 org.projectplusgame.project-plus-dolphin.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/                                    # Install metainfo file
+      - install -D -t ${FLATPAK_DEST}/bin/ dolphin-emu-wrapper.sh
+      - desktop-file-edit --set-key=Exec --set-value='/app/bin/dolphin-emu-wrapper.sh'
+        /app/share/applications/org.DolphinEmu.dolphin-emu.desktop
+      - desktop-file-edit --set-key=Name --set-value='Dolphin Emulator'
+        /app/share/applications/org.DolphinEmu.dolphin-emu.desktop
+      - rm -r ${FLATPAK_DEST}/share/dolphin-emu/sys
+      - mv Data/Sys ${FLATPAK_DEST}/share/dolphin-emu/sys/
+      - install -Dm644 org.DolphinEmu.dolphin-emu.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/                                    # Install metainfo file

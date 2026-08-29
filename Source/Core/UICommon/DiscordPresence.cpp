@@ -101,16 +101,8 @@ std::string ArtworkForGameId()
   const bool is_wii = Core::System::GetInstance().IsWii();
   const std::string region_code = SConfig::GetInstance().GetGameTDBImageRegionCode(is_wii, region);
 
-  if (SConfig::GetInstance().GetGameTDBID() == "RSBE01" || "ID-Project+ Netplay Launcher")
-  {
-    static constexpr char cover_url[] = "https://art.gametdb.com/wii/coverB/US/RSBEPL.png";
-    return fmt::format(cover_url, region_code, SConfig::GetInstance().GetGameTDBID());
-  }
-  else
-  {
-    static constexpr char cover_url[] = "https://discord.dolphin-emu.org/cover-art/{}/{}.png";
-    return fmt::format(cover_url, region_code, SConfig::GetInstance().GetGameTDBID());
-  }
+  static constexpr char cover_url[] = "https://discord.dolphin-emu.org/cover-art/{}/{}.png";
+  return fmt::format(cover_url, region_code, SConfig::GetInstance().GetGameTDBID());
 }
 
 }  // namespace

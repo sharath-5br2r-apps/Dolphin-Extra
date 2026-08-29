@@ -39,7 +39,7 @@ ninja
 #cat /dolphin/build/CMakeFiles/CMakeError.log | curl -F 'f:1=<-' ix.io
 
 cd /tmp
-curl -sLO "https://raw.githubusercontent.com/Project-Plus-Development-Team/Project-Plus-Dolphin/$branch/Distribution/appimage/appimage.sh"
+curl -sLO "https://raw.githubusercontent.com/dolphin-emu/dolphin/$branch/Distribution/appimage/appimage.sh"
 chmod a+x appimage.sh
 ./appimage.sh
 #ls -al /dolphin
