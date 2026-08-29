@@ -88,13 +88,19 @@ void UpdateDialog::accept()
         QString downloadUrl(object.value(QStringLiteral("browser_download_url")).toString());
 
         #ifdef _WIN32
-        if (filenameBlob.contains(QStringLiteral("Windows.Update")) || 
-            filenameBlob.contains(QStringLiteral("Windows")) || 
-            filenameBlob.contains(QStringLiteral("win64")))
+        if (filenameBlob.endsWith(QStringLiteral(".zip"), Qt::CaseInsensitive) ||
+            filenameBlob.endsWith(QStringLiteral(".exe"), Qt::CaseInsensitive) ||
+            filenameBlob.contains(QStringLiteral("Windows"), Qt::CaseInsensitive) || 
+            filenameBlob.contains(QStringLiteral("win64"), Qt::CaseInsensitive) ||
+            filenameBlob.contains(QStringLiteral("x64"), Qt::CaseInsensitive))
         {
             filenameToDownload = filenameBlob;
             urlToDownload = downloadUrl;
-            break;
+            if (filenameBlob.endsWith(QStringLiteral(".zip"), Qt::CaseInsensitive) ||
+                filenameBlob.endsWith(QStringLiteral(".exe"), Qt::CaseInsensitive))
+            {
+                break;
+            }
         }
         #endif
         #ifdef __APPLE__

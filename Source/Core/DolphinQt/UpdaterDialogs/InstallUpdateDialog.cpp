@@ -232,7 +232,7 @@ void InstallUpdateDialog::install()
   this->updateGeometry();
   QThread::msleep(100);
   
-  QString extractDirectory = this->temporaryDirectory + QDir::separator() + QStringLiteral("Project-Plus-Dolphin");
+  QString extractDirectory = this->temporaryDirectory + QDir::separator() + QStringLiteral("Dolphin-Extra");
 
   if (this->filename.endsWith(QStringLiteral(".zip")))
   {
@@ -246,7 +246,7 @@ void InstallUpdateDialog::install()
     QDir dir(this->temporaryDirectory);
     if (!QDir(extractDirectory).exists())
     {
-      if (!dir.mkdir(QStringLiteral("Project-Plus-Dolphin")))
+      if (!dir.mkdir(QStringLiteral("Dolphin-Extra")))
       {
         QMessageBox::critical(this, QStringLiteral("Error"),
                               QStringLiteral("Failed to create extract directory."));
