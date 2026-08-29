@@ -274,11 +274,11 @@ jobs:
             build_cmd: 'cmake --build --preset ninja-build-release-x64 --target dolphin-emu'
           - arch: arm64-v8a
             runner: windows-2025-vs2026
-            vs_arch: x64
+            vs_arch: arm64
             bin_dir: ARM64
             use_preset: true
-            configure_cmd: 'cmake --preset visualstudio-release-arm64'
-            build_cmd: 'cmake --build build/release/arm64 --config Release --target dolphin-emu'
+            configure_cmd: 'cmake --preset ninja-release-arm64'
+            build_cmd: 'cmake --build --preset ninja-build-release-arm64 --target dolphin-emu'
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
