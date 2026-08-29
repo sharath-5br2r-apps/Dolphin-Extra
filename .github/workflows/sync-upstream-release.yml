@@ -277,7 +277,7 @@ jobs:
             vs_arch: arm64
             bin_dir: ARM64
             use_preset: true
-            configure_cmd: 'cmake --preset ninja-release-arm64'
+            configure_cmd: 'cmake --preset ninja-release-arm64 -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64'
             build_cmd: 'cmake --build --preset ninja-build-release-arm64 --target dolphin-emu'
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
@@ -296,6 +296,12 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ccache-windows-${{ matrix.arch }}-${{ runner.os }}
+
+      - name: Install Qt
+        uses: jurplel/install-qt@v4
+        with:
+          version: '6.8.0'
+          arch: 'win64_msvc2022_arm64'
 
       - uses: egor-tensin/vs-shell@v2
         with:
