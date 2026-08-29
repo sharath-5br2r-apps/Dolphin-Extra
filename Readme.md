@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ## Dolphin Extra
 Dolphin Extra incorporates aspects of [DolphinCS](https://github.com/JoeysRetroHandhelds/DolphinCS) and [Better Wii Menu DE](https://github.com/Gavin-S-Dev/Better-Wii-Menu-DE) but instead syncs to pull requests. All branding is removed and the apk is optionally spoofed to Game for Peace`com.tencent.tmgp.pubgmhd`  for performance.
 Additionally Linux and Windows builds of Dolphin Extra is also available.
@@ -81,31 +80,6 @@ Switching between games has never been easier!
 
 <details>
 <summary>Original</summary>
-=======
-# Project+ Dolphin Fork
-
-![Untitled-1](https://github.com/user-attachments/assets/3bfb148a-85d1-489d-96ae-1b7892acdc11)
-
-
-This fork is a heavily modified version of the Dolphin Emulator designed for usage with Project+. It includes the following features:
-
-  * Branding, theming and iconography updates to match the Project+ aesthetic
-  * Netplay button on the toolbar
-  * Update button on the toolbar
-  * Specific aspect ratios (19:15 and 69:40 for regular and widescreen, respectively)
-  * Discord Rich Presence support for Project+
-  * Gamecube Adapter polling rate listed in controller settings
-  * Pre-configured hotkeys for volume up/down and opening netplay chat
-  * Automatic copying of netplay lobby code on netplay window startup
-  * 2 buffer as default netplay setting (equivalent to 4 in FPM)
-  * Separate Minimum and Player buffers in netplay window
-  * Client side music toggle in netplay window
-  * Spectator button in netplay window
-  * Automatic export of Brawl vault data at the end of netplay sessions
-  * Alternative implementation for automatic updates that fetch the latest GitHub release
- 
-This project would not be possible without the work done by the [Faster Melee](https://github.com/FasterMelee/Ishiiruka), [Faster PM](https://github.com/jlambert360/Ishiiruka), [Slippi](https://github.com/project-slippi/dolphin), and [Mario Party Netplay](https://github.com/MarioPartyNetplay/Dolphin-MPN) teams. 
->>>>>>> 42f1332e2a590fdc5588c31214ecdfa9c688431a
 
 # Dolphin - A GameCube and Wii Emulator
 
@@ -161,92 +135,7 @@ Before building, make sure to pull all submodules:
 git submodule update --init --recursive
 ```
 
-<<<<<<< HEAD
 ### Android-specific instructions
-=======
-The "Release" solution configuration includes performance optimizations for the best user experience but complicates debugging Dolphin.
-The "Debug" solution configuration is significantly slower, more verbose and less permissive but makes debugging Dolphin easier.
-
-## Building for Linux and macOS
-
-Dolphin requires [CMake](https://cmake.org/) for systems other than Windows. 
-You need a recent version of GCC or Clang with decent c++20 support. CMake will
-inform you if your compiler is too old.
-Many libraries are bundled with Dolphin and used if they're not installed on 
-your system. CMake will inform you if a bundled library is used or if you need
-to install any missing packages yourself. You may refer to the [wiki](https://github.com/dolphin-emu/dolphin/wiki/Building-for-Linux) for more information.
-
-Make sure to pull submodules before building:
-```sh
-git submodule update --init --recursive
-```
-
-### macOS Build Steps:
-
-A binary supporting a single architecture can be built using the following steps: 
-
-1. `mkdir build`
-2. `cd build`
-3. `cmake ..`
-4. `make -j $(sysctl -n hw.logicalcpu)`
-
-An application bundle will be created in `./Binaries`.
-
-A script is also provided to build universal binaries supporting both x64 and ARM in the same
-application bundle using the following steps:
-
-1. `mkdir build`
-2. `cd build`
-3. `python ../BuildMacOSUniversalBinary.py`
-4. Universal binaries will be available in the `universal` folder
-
-Doing this is more complex as it requires installation of library dependencies for both x64 and ARM (or universal library
-equivalents) and may require specifying additional arguments to point to relevant library locations. 
-Execute BuildMacOSUniversalBinary.py --help for more details.  
-
-### Linux Global Build Steps:
-
-To install to your system.
-
-1. `mkdir build`
-2. `cd build`
-3. `cmake ..`
-4. `make -j $(nproc)`
-5. `sudo make install`
-
-### Linux Local Build Steps:
-
-Useful for development as root access is not required.
-
-1. `mkdir Build`
-2. `cd Build`
-3. `cmake .. -DLINUX_LOCAL_DEV=true`
-4. `make -j $(nproc)`
-5. `ln -s ../../Data/Sys Binaries/`
-
-### Linux Portable Build Steps:
-
-Can be stored on external storage and used on different Linux systems.
-Or useful for having multiple distinct Dolphin setups for testing/development/TAS.
-
-1. `mkdir Build`
-2. `cd Build`
-3. `cmake .. -DLINUX_LOCAL_DEV=true`
-4. `make -j $(nproc)`
-5. `cp -r ../Data/Sys/ ../Data/user/ ../Data/portable.txt Binaries/`
-
-
-### Linux AppImage Build Steps:
-
-Used for distribution of Project+ builds.
-
-1. `mkdir Build`
-2. `cd Build`
-3. `cmake .. -DLINUX_LOCAL_DEV=true -DCMAKE_INSTALL_PREFIX=/usr -GNinja`
-4. `../BuildLinuxAppImage.sh`
-
-## Building for Android
->>>>>>> 42f1332e2a590fdc5588c31214ecdfa9c688431a
 
 These instructions assume familiarity with Android development. If you do not have an
 Android dev environment set up, see [AndroidSetup.md](AndroidSetup.md).

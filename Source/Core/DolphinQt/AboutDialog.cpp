@@ -17,7 +17,7 @@
 
 AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent)
 {
-  setWindowTitle(tr("About Project+ Dolphin"));
+  setWindowTitle(tr("About Dolphin"));
 
   QString branch_str = QString::fromStdString(Common::GetScmBranchStr());
   const int commits_ahead = Common::GetScmCommitsAheadMaster();
@@ -39,7 +39,7 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent)
 
   const QString text =
       QStringLiteral(R"(
-<p style='font-size:34pt; font-weight:400;'>Project+ Dolphin</p>
+<p style='font-size:34pt; font-weight:400;'>Dolphin</p>
 
 <p style='font-size:18pt;'>%VERSION_STRING%</p>
 

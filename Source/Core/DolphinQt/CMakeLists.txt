@@ -21,7 +21,7 @@ message(STATUS "Found Qt version ${Qt6_VERSION}")
 
 set_property(TARGET Qt6::Core PROPERTY INTERFACE_COMPILE_FEATURES "")
 
-add_executable(project-plus-dolphin
+add_executable(dolphin-emu
   AboutDialog.cpp
   AboutDialog.h
   CheatSearchFactoryWidget.cpp
@@ -292,12 +292,6 @@ add_executable(project-plus-dolphin
   Main.cpp
   MainWindow.cpp
   MainWindow.h
-  ProjectPlus/DownloadWorker.cpp
-  ProjectPlus/DownloadWorker.h
-  ProjectPlus/InstallUpdateDialog.cpp
-  ProjectPlus/InstallUpdateDialog.h
-  ProjectPlus/UpdateDialog.cpp
-  ProjectPlus/UpdateDialog.h
   MenuBar.cpp
   MenuBar.h
   NetPlay/ChunkedProgressDialog.cpp
@@ -429,19 +423,19 @@ add_executable(project-plus-dolphin
 )
 
 if (WIN32)
-  target_sources(project-plus-dolphin PRIVATE
+  target_sources(dolphin-emu PRIVATE
     Styles/Dark/dark.qrc
   )
 endif()
 
 if (NOT WIN32)
-  target_sources(project-plus-dolphin PRIVATE
+  target_sources(dolphin-emu PRIVATE
     QtUtils/SignalDaemon.cpp
     QtUtils/SignalDaemon.h
   )
 endif()
 
-target_compile_definitions(project-plus-dolphin
+target_compile_definitions(dolphin-emu
 PRIVATE
   -DQT_USE_QSTRINGBUILDER
   -DQT_NO_CAST_FROM_ASCII
@@ -449,16 +443,15 @@ PRIVATE
   # This Qt version should match Externals/Qt.
   # It disables deprecation warnings we can't fix yet.
   -DQT_WARN_DEPRECATED_UP_TO=0x060501
-  -DSHOW_UPDATER
 )
 
-target_include_directories(project-plus-dolphin
+target_include_directories(dolphin-emu
 PRIVATE
   ${CMAKE_CURRENT_BINARY_DIR}
   ${Qt6Gui_PRIVATE_INCLUDE_DIRS}
 )
 
-target_link_libraries(project-plus-dolphin
+target_link_libraries(dolphin-emu
 PRIVATE
   core
   Qt6::Widgets
@@ -482,7 +475,7 @@ if (NEED_QT_GUI_PRIVATE_COMPONENT)
 endif()
 
 if (WIN32)
-  target_link_libraries(project-plus-dolphin
+  target_link_libraries(dolphin-emu
   PRIVATE
     gdi32.lib
     shell32.lib
@@ -497,19 +490,18 @@ if (MSVC)
   list(TRANSFORM Qt6Gui_INCLUDE_DIRS PREPEND "/external:I" OUTPUT_VARIABLE qtGui)
   list(TRANSFORM Qt6Gui_PRIVATE_INCLUDE_DIRS PREPEND "/external:I" OUTPUT_VARIABLE qtGuiPriv)
   list(TRANSFORM Qt6Widgets_PRIVATE_INCLUDE_DIRS PREPEND "/external:I" OUTPUT_VARIABLE qtWidgetsPriv)
-  target_compile_options(project-plus-dolphin PRIVATE "${qtGui}")
-  target_compile_options(project-plus-dolphin PRIVATE "${qtGuiPriv}")
-  target_compile_options(project-plus-dolphin PRIVATE "${qtWidgets}")
+  target_compile_options(dolphin-emu PRIVATE "${qtGui}")
+  target_compile_options(dolphin-emu PRIVATE "${qtGuiPriv}")
+  target_compile_options(dolphin-emu PRIVATE "${qtWidgets}")
 
   # Qt 6.3.0 headers use std::aligned_storage instead of alignas
-  target_compile_definitions(project-plus-dolphin PRIVATE _SILENCE_CXX23_ALIGNED_STORAGE_DEPRECATION_WARNING)
+  target_compile_definitions(dolphin-emu PRIVATE _SILENCE_CXX23_ALIGNED_STORAGE_DEPRECATION_WARNING)
 
   # Qt6 requires RTTI
-  remove_cxx_flag_from_target(project-plus-dolphin "/GR-")
-  target_compile_options(project-plus-dolphin PRIVATE "/GR")
+  remove_cxx_flag_from_target(dolphin-emu "/GR-")
+  target_compile_options(dolphin-emu PRIVATE "/GR")
 endif()
 
-<<<<<<< HEAD
 if (NOT APPLE AND NOT ANDROID)
   # Symlink Sys
   add_custom_command(TARGET dolphin-emu POST_BUILD
@@ -556,48 +548,12 @@ if (WIN32)
 
 
   target_sources(dolphin-emu PRIVATE DolphinQt.manifest DolphinQt.rc)
-=======
-if(WIN32)
-  target_sources(project-plus-dolphin PRIVATE DolphinQt.manifest DolphinQt.rc)
->>>>>>> 42f1332e2a590fdc5588c31214ecdfa9c688431a
 
-  set_target_properties(project-plus-dolphin PROPERTIES
+  set_target_properties(dolphin-emu PROPERTIES
     DEBUG_POSTFIX    D
     OUTPUT_NAME      Dolphin
     WIN32_EXECUTABLE TRUE
   )
-<<<<<<< HEAD
-=======
-
-  # Copy Sys dir
-  add_custom_command(TARGET project-plus-dolphin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Sys"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/Data/Sys" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Sys"
-  )
-
-  # Copy COPYING
-  add_custom_command(TARGET project-plus-dolphin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/COPYING" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/COPYING"
-  )
-
-  # Copy Licenses dir
-  add_custom_command(TARGET project-plus-dolphin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/LICENSES" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Licenses"
-  )
-
-  # Copy qt.conf
-  add_custom_command(TARGET project-plus-dolphin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/qt.conf.win" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/qt.conf"
-  )
-
-  if (ENABLE_AUTOUPDATE)
-    # Copy build_info.txt
-    add_custom_command(TARGET dolphin-emu POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_BINARY_DIR}/build_info.txt" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/build_info.txt"
-    )
-  endif()
-
->>>>>>> 42f1332e2a590fdc5588c31214ecdfa9c688431a
   # Delegate to Qt's official deployment binary on Windows to copy over the necessary Qt-specific libraries, etc.
   get_target_property(MOC_EXECUTABLE_LOCATION Qt6::moc IMPORTED_LOCATION)
   get_filename_component(QT_BINARY_DIRECTORY "${MOC_EXECUTABLE_LOCATION}" DIRECTORY)
@@ -617,7 +573,7 @@ if(WIN32)
   #       means proper path variables will not be set up, thus the need to ensure they're
   #       always set up.
   #
-  add_custom_command(TARGET project-plus-dolphin POST_BUILD
+  add_custom_command(TARGET dolphin-emu POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E env PATH="${QT_BINARY_DIRECTORY}"
             "${WINDEPLOYQT_EXE}" --libdir="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
                                  --plugindir="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/QtPlugins"
@@ -627,7 +583,7 @@ if(WIN32)
                                  --no-system-d3d-compiler
                                  --no-system-dxc-compiler
                                  --no-opengl-sw
-                                 "$<TARGET_FILE:project-plus-dolphin>"
+                                 "$<TARGET_FILE:dolphin-emu>"
   )
 endif()
 
@@ -643,36 +599,21 @@ else()
   message(STATUS "NLS disabled, skipping localization")
 endif()
 
-<<<<<<< HEAD
 if(NOT DISABLE_NLS AND GETTEXT_MSGFMT_EXECUTABLE)
   set(pot_file "${CMAKE_SOURCE_DIR}/Languages/po/dolphin-emu.pot")
-=======
-if(GETTEXT_MSGFMT_EXECUTABLE)
-  set(pot_file "${CMAKE_SOURCE_DIR}/Languages/po/project-plus-dolphin.pot")
->>>>>>> 42f1332e2a590fdc5588c31214ecdfa9c688431a
   file(GLOB LINGUAS ${CMAKE_SOURCE_DIR}/Languages/po/*.po)
 
-  target_sources(project-plus-dolphin PRIVATE ${pot_file} ${LINGUAS})
+  target_sources(dolphin-emu PRIVATE ${pot_file} ${LINGUAS})
   source_group("Localization" FILES ${LINGUAS})
   source_group("Localization\\\\Generated" FILES ${pot_file})
 
   foreach(po ${LINGUAS})
     get_filename_component(lang ${po} NAME_WE)
-<<<<<<< HEAD
 
     set(mo_dir ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Languages/${lang})
     set(mo ${mo_dir}/dolphin-emu.mo)
-=======
-    if(WIN32)
-      set(mo_dir ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Languages)
-      set(mo ${mo_dir}/${lang}.mo)
-    else()
-      set(mo_dir ${CMAKE_CURRENT_BINARY_DIR}/${lang})
-      set(mo ${mo_dir}/project-plus-dolphin.mo)
-    endif()
->>>>>>> 42f1332e2a590fdc5588c31214ecdfa9c688431a
 
-    target_sources(project-plus-dolphin PRIVATE ${mo})
+    target_sources(dolphin-emu PRIVATE ${mo})
     source_group("Localization\\\\Generated" FILES ${mo})
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -693,7 +634,7 @@ if(APPLE)
   include(BundleUtilities)
 
   # Ask for an application bundle.
-  set_target_properties(project-plus-dolphin PROPERTIES
+  set_target_properties(dolphin-emu PROPERTIES
     MACOSX_BUNDLE true
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
     XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
@@ -701,11 +642,11 @@ if(APPLE)
     )
 
   # Copy qt.conf into the bundle
-  target_sources(project-plus-dolphin PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/qt.conf")
+  target_sources(dolphin-emu PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/qt.conf")
   set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/qt.conf" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
   # Copy icon into the bundle
-  target_sources(project-plus-dolphin PRIVATE "${CMAKE_SOURCE_DIR}/Data/Dolphin.icns")
+  target_sources(dolphin-emu PRIVATE "${CMAKE_SOURCE_DIR}/Data/Dolphin.icns")
   set_source_files_properties("${CMAKE_SOURCE_DIR}/Data/Dolphin.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
   # Manually include plugins
@@ -714,18 +655,18 @@ if(APPLE)
 
   # Copy Qt plugins into the bundle
   get_target_property(qtcocoa_location Qt6::QCocoaIntegrationPlugin LOCATION)
-  target_sources(project-plus-dolphin PRIVATE "${qtcocoa_location}")
+  target_sources(dolphin-emu PRIVATE "${qtcocoa_location}")
   set_source_files_properties("${qtcocoa_location}" PROPERTIES MACOSX_PACKAGE_LOCATION MacOS/platforms)
 
   get_target_property(qtmacstyle_location Qt6::QMacStylePlugin LOCATION)
-  target_sources(project-plus-dolphin PRIVATE "${qtmacstyle_location}")
+  target_sources(dolphin-emu PRIVATE "${qtmacstyle_location}")
   set_source_files_properties("${qtmacstyle_location}" PROPERTIES MACOSX_PACKAGE_LOCATION MacOS/styles)
 
   # Copy resources into the bundle
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/Data/Sys")
   file(GLOB_RECURSE resources RELATIVE "${CMAKE_SOURCE_DIR}/Data" "${CMAKE_SOURCE_DIR}/Data/Sys/*")
   foreach(res ${resources})
-    target_sources(project-plus-dolphin PRIVATE "${CMAKE_SOURCE_DIR}/Data/${res}")
+    target_sources(dolphin-emu PRIVATE "${CMAKE_SOURCE_DIR}/Data/${res}")
     get_filename_component(resdir "${res}" DIRECTORY)
     set_source_files_properties("${CMAKE_SOURCE_DIR}/Data/${res}" PROPERTIES
       MACOSX_PACKAGE_LOCATION "Resources/${resdir}")
@@ -733,21 +674,21 @@ if(APPLE)
   endforeach()
 
   include(DolphinInjectVersionInfo)
-  dolphin_inject_version_info(project-plus-dolphin)
+  dolphin_inject_version_info(dolphin-emu)
 
   # Copy MoltenVK into the bundle
   if(ENABLE_VULKAN)
     if(USE_BUNDLED_MOLTENVK)
-      add_dependencies(project-plus-dolphin MoltenVK)
+      add_dependencies(dolphin-emu MoltenVK)
       ExternalProject_Get_Property(MoltenVK SOURCE_DIR)
-      target_sources(project-plus-dolphin PRIVATE "${SOURCE_DIR}/Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib")
+      target_sources(dolphin-emu PRIVATE "${SOURCE_DIR}/Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib")
       set_source_files_properties("${SOURCE_DIR}/Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib" PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks GENERATED ON)
     else()
       find_file(MOLTENVK_DYLIB NAMES libMoltenVK.dylib PATH_SUFFIXES lib)
       if(NOT MOLTENVK_DYLIB)
         message(FATAL_ERROR "Couldn't find libMoltenVK.dylib.  Enable USE_BUNDLED_MOLTENVK?")
       endif()
-      target_sources(project-plus-dolphin PRIVATE ${MOLTENVK_DYLIB})
+      target_sources(dolphin-emu PRIVATE ${MOLTENVK_DYLIB})
       set_source_files_properties(${MOLTENVK_DYLIB} PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks)
     endif()
   endif()
@@ -755,34 +696,29 @@ if(APPLE)
   if(POSTPROCESS_BUNDLE)
     # Update library references to make the bundle portable
     include(DolphinPostprocessBundle)
-    dolphin_postprocess_bundle(project-plus-dolphin)
+    dolphin_postprocess_bundle(dolphin-emu)
     # Fix rpath
-    add_custom_command(TARGET project-plus-dolphin
+    add_custom_command(TARGET dolphin-emu
       POST_BUILD COMMAND
       ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
-      $<TARGET_FILE:project-plus-dolphin>)
+      $<TARGET_FILE:dolphin-emu>)
   endif()
 
   if(MACOS_CODE_SIGNING)
-    add_custom_command(TARGET project-plus-dolphin
+    add_custom_command(TARGET dolphin-emu
       POST_BUILD
       COMMAND "${CMAKE_SOURCE_DIR}/Tools/mac-codesign.sh"
       "-e" "${CMAKE_CURRENT_SOURCE_DIR}/DolphinEmu$<$<CONFIG:Debug>:Debug>.entitlements"
       "${MACOS_CODE_SIGNING_IDENTITY}"
-      "$<TARGET_BUNDLE_DIR:project-plus-dolphin>"
+      "$<TARGET_BUNDLE_DIR:dolphin-emu>"
     )
   endif()
-<<<<<<< HEAD
 elseif (NOT WIN32)
   install(TARGETS dolphin-emu RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-=======
-else()
-  install(TARGETS project-plus-dolphin RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
->>>>>>> 42f1332e2a590fdc5588c31214ecdfa9c688431a
 endif()
 
 if(USE_MGBA)
-  target_sources(project-plus-dolphin PRIVATE
+  target_sources(dolphin-emu PRIVATE
     GBAHost.cpp
     GBAHost.h
     GBAWidget.cpp
@@ -791,13 +727,13 @@ if(USE_MGBA)
 endif()
 
 if(USE_DISCORD_PRESENCE)
-  target_compile_definitions(project-plus-dolphin PRIVATE -DUSE_DISCORD_PRESENCE)
+  target_compile_definitions(dolphin-emu PRIVATE -DUSE_DISCORD_PRESENCE)
 endif()
 
 if(USE_RETRO_ACHIEVEMENTS)
-  target_link_libraries(project-plus-dolphin PRIVATE rcheevos)
-  target_compile_definitions(project-plus-dolphin PRIVATE -DUSE_RETRO_ACHIEVEMENTS)
+  target_link_libraries(dolphin-emu PRIVATE rcheevos)
+  target_compile_definitions(dolphin-emu PRIVATE -DUSE_RETRO_ACHIEVEMENTS)
   if(RC_CLIENT_SUPPORTS_RAINTEGRATION)
-    target_compile_definitions(project-plus-dolphin PRIVATE -DRC_CLIENT_SUPPORTS_RAINTEGRATION)
+    target_compile_definitions(dolphin-emu PRIVATE -DRC_CLIENT_SUPPORTS_RAINTEGRATION)
   endif()
 endif()

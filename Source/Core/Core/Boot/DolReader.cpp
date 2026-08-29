@@ -61,36 +61,10 @@ bool DolReader::Initialize(std::span<const u8> buffer)
     const u64 section_size = Common::AlignUp(static_cast<u64>(m_dolheader.m_text_size[i]), 32);
     if (section_size != m_dolheader.m_text_size[i])
     {
-<<<<<<< HEAD
       WARN_LOG_FMT(BOOT,
                    "DolReader: Text section {} size is not aligned to 32 bytes and can cause "
                    "issues when loaded",
                    i);
-=======
-      if ((m_dolheader.textAddress[i] & 31) != 0 || (m_dolheader.textSize[i] & 31) != 0)
-      {
-        ERROR_LOG_FMT(BOOT,
-                      "Text section {} is not 32-byte aligned: address = 0x{:08x}, size = 0x{:x}",
-                      i, m_dolheader.textAddress[i], m_dolheader.textSize[i]);
-        return false;
-      }
-
-      const std::size_t section_offset = m_dolheader.textOffset[i];
-      const std::size_t section_size = m_dolheader.textSize[i];
-
-      if (buffer.size() < section_offset || (buffer.size() - section_offset) < section_size)
-        return false;
-
-      const u8* text_start = &buffer[section_offset];
-      m_text_sections.emplace_back(text_start, &text_start[section_size]);
-
-      for (unsigned int j = 0; !m_is_wii && j < (m_dolheader.textSize[i] / sizeof(u32)); ++j)
-      {
-        u32 word = ((u32*)text_start)[j];
-        if ((word & HID4_mask) == HID4_pattern)
-          m_is_wii = true;
-      }
->>>>>>> 42f1332e2a590fdc5588c31214ecdfa9c688431a
     }
 
     if (buffer.size() < m_dolheader.m_text_offset[i] + section_size)
@@ -115,36 +89,12 @@ bool DolReader::Initialize(std::span<const u8> buffer)
 
   for (int i = 0; i < DOL_NUM_DATA; ++i)
   {
-<<<<<<< HEAD
     if (m_dolheader.m_data_size[i] == 0)
       continue;
 
     const u64 section_size = Common::AlignUp(static_cast<u64>(m_dolheader.m_data_size[i]), 32);
     const u32 section_offset = m_dolheader.m_data_offset[i];
     if (section_size != m_dolheader.m_data_size[i])
-=======
-    if (m_dolheader.dataSize[i] != 0)
-    {
-      const std::size_t section_size = m_dolheader.dataSize[i];
-      const std::size_t section_offset = m_dolheader.dataOffset[i];
-      if ((m_dolheader.dataAddress[i] & 31) != 0 || (section_size & 31) != 0)
-      {
-        ERROR_LOG_FMT(BOOT,
-                      "Data section {} is not 32-byte aligned: address = 0x{:08x}, size = 0x{:x}",
-                      i, m_dolheader.dataAddress[i], section_size);
-        return false;
-      }
-
-      if (buffer.size() < section_offset)
-        return false;
-
-      std::vector<u8> data(section_size);
-      const u8* data_start = &buffer[section_offset];
-      std::memcpy(&data[0], data_start, std::min(section_size, buffer.size() - section_offset));
-      m_data_sections.emplace_back(data);
-    }
-    else
->>>>>>> 42f1332e2a590fdc5588c31214ecdfa9c688431a
     {
       WARN_LOG_FMT(BOOT,
                    "DolReader: Data section {} size is not aligned to 32 bytes and can cause "
