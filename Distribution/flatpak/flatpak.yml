@@ -4,8 +4,7 @@ runtime: org.kde.Platform
 runtime-version: 6.7
 sdk: org.kde.Sdk
 command: dolphin-emu-wrapper.sh
-rename-desktop-file: org.DolphinEmu.dolphin-emu.desktop
-rename-icon: org.DolphinEmu.dolphin-emu
+rename-icon: dolphin-emu
 finish-args:
   - --device=all # need for controllers
   # the file picker uses portals but the set
@@ -119,10 +118,11 @@ modules:
         path: org.DolphinEmu.dolphin-emu.metainfo.xml
     post-install:
       - install -D -t ${FLATPAK_DEST}/bin/ dolphin-emu-wrapper.sh
+      - mv /app/share/applications/dolphin-emu.desktop /app/share/applications/org.DolphinEmu.dolphin-emu.desktop
       - desktop-file-edit --set-key=Exec --set-value='/app/bin/dolphin-emu-wrapper.sh'
-        /app/share/applications/dolphin-emu.desktop
+        /app/share/applications/org.DolphinEmu.dolphin-emu.desktop
       - desktop-file-edit --set-key=Name --set-value='Dolphin Emulator'
-        /app/share/applications/dolphin-emu.desktop
+        /app/share/applications/org.DolphinEmu.dolphin-emu.desktop
       - rm -rf ${FLATPAK_DEST}/share/dolphin-emu/sys
       - mv ${FLATPAK_BUILDER_BUILDDIR}/Data/Sys ${FLATPAK_DEST}/share/dolphin-emu/sys/
       - install -Dm644 org.DolphinEmu.dolphin-emu.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
