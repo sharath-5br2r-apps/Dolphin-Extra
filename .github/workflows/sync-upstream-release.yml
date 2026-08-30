@@ -276,7 +276,7 @@ jobs:
           - arch: arm64-v8a
             runner: windows-2025-vs2026
             vs_arch: arm64
-            qt_arch: win64_msvc2022_arm64
+            qt_arch: msvc2022_arm64
             bin_dir: ARM64
             use_preset: true
             configure_cmd: 'cmake --preset ninja-release-arm64 -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DQt6_DIR="%Qt6_DIR%"'
@@ -302,9 +302,10 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.*'
+          version: '6.7.*'
           target: 'desktop'
           arch: ${{ matrix.qt_arch }}
+          extra: '--autodesktop'
           set-env: true
 
       - uses: egor-tensin/vs-shell@v2
