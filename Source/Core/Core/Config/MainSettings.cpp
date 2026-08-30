@@ -384,12 +384,9 @@ void SetIsoPaths(std::span<const std::string> paths)
 
   size_t current_path_idx = 0;
 
-  // P+ change: start from index 1, assuming launcher path is at index 0
-  for (size_t i = 1; i < paths.size(); ++i)
+  for (const std::string& p : paths)
   {
-    const std::string& p = paths[i];
-
-    if (p.empty())
+    if (p.empty() || p == launcher_path)
       continue;
 
     Config::SetBase(MakeISOPathConfigInfo(current_path_idx), p);
