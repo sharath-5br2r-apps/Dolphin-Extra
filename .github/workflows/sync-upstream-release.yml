@@ -292,7 +292,7 @@ jobs:
           submodules: recursive
 
       - name: Install Dependencies
-        run: choco install pkgconfiglite curl ninja nasm -y
+        run: choco install pkgconfiglite curl ninja nasm nsis -y
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -342,24 +342,33 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           $PR_NUM = "${{ needs.check.outputs.pr_number }}"
-          $FILE_NAME = "dolphin-extra-windows-vpr${PR_NUM}-${{ matrix.arch }}.zip"
+          $ZIP_NAME = "dolphin-extra-windows-vpr${PR_NUM}-${{ matrix.arch }}.zip"
+          $EXE_NAME = "dolphin-extra-windows-installer-vpr${PR_NUM}-${{ matrix.arch }}.exe"
 
           New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
-          if (Test-Path ".\Binary\${{ matrix.bin_dir }}\") {
-            Set-Location -Path ".\Binary\${{ matrix.bin_dir }}\"
-          } else {
-            Set-Location -Path ".\Binary\"
-          }
+          
+          # Prepare Zip Portable Package
+          Push-Location ".\Binary\${{ matrix.bin_dir }}\"
           attrib +r Sys\*.* /s 2>$null
           fsutil file createnew portable.txt 0
-          7z a "$FILE_NAME" .\*
-          Move-Item -Path "$FILE_NAME" -Destination "..\..\artifact\" -Force
+          7z a "..\..\artifact\$ZIP_NAME" .\*
+          Pop-Location
+
+          # Prepare NSIS Setup Installer Package
+          if (Get-Command makensis -ErrorAction SilentlyContinue) {
+            Push-Location "Installer"
+            makensis /DDOLPHIN_ARCH=${{ matrix.bin_dir }} /DPRODUCT_VERSION=vpr${PR_NUM} Installer.nsi
+            Move-Item -Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe" -Destination "..\artifact\$EXE_NAME" -Force
+            Pop-Location
+          } else {
+            Write-Host "makensis not found! Installing nsis via choco or skipping NSIS build..."
+          }
 
       - name: "Upload Artifact"
         uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}-build
-          path: "./artifact/*.zip"
+          path: "./artifact/*"
           retention-days: 1
 
 
