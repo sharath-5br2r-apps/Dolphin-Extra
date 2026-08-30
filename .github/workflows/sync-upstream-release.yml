@@ -587,58 +587,6 @@ jobs:
           retention-days: 1
 
 
-  # ==========================================
-  # 3E. DOWNSTREAM BUILD JOB - FLATPAK
-  # ==========================================
-  flatpak:
-    needs: [check, sync]
-    if: always() && needs.sync.result == 'success'
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x86_64
-            runner: ubuntu-latest
-          - arch: aarch64
-            runner: ubuntu-24.04-arm
-    steps:
-      - name: Checkout master branch
-        uses: actions/checkout@v4
-        with:
-          ref: master
-
-      - name: Install Flatpak tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
-          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y flathub org.kde.Sdk//6.7 org.kde.Platform//6.7
-
-      - name: Pin Flatpak manifest to workflow ref
-        run: |
-          REPO_URL="https://github.com/sharath-5br2r-apps/Dolphin-Extra"
-          sed -i '/^[[:space:]]*tag:[[:space:]]/d' Distribution/flatpak/flatpak.yml
-          sed -i '/^[[:space:]]*commit:[[:space:]]/d' Distribution/flatpak/flatpak.yml
-          sed -i "/url:.*Dolphin-Extra/a\\        commit: ${GITHUB_SHA}" Distribution/flatpak/flatpak.yml
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            sed -i "/url:.*Dolphin-Extra/a\\        tag: ${GITHUB_REF_NAME}" Distribution/flatpak/flatpak.yml
-          fi
-
-      - name: Build Flatpak
-        run: |
-          PR_NUM="${{ needs.check.outputs.pr_number }}"
-          BUNDLE="dolphin-extra-vpr${PR_NUM}-${{ matrix.arch }}.flatpak"
-          flatpak-builder --user --install-deps-from=flathub --force-clean --repo=flatpak-repo build-flatpak Distribution/flatpak/flatpak.yml
-          flatpak build-bundle --arch=${{ matrix.arch }} flatpak-repo "${BUNDLE}" org.DolphinEmu.dolphin-emu
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: flatpak-${{ matrix.arch }}-build
-          path: "*.flatpak"
-          retention-days: 1
-
 
   # ==========================================
   # 3F. DOWNSTREAM BUILD JOB - APPIMAGE
@@ -764,7 +712,7 @@ jobs:
   # 4. RELEASE JOB (Uses Upstream Tag & Title Naming)
   # ==========================================
   release:
-    needs: [check, android, windows, linux, macos, flatpak, appimage]
+    needs: [check, android, windows, linux, macos, appimage]
     if: always() && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.linux.result == 'success' || needs.macos.result == 'success' || needs.appimage.result == 'success')
     runs-on: ubuntu-latest
     steps:
