@@ -267,18 +267,18 @@ jobs:
         include:
           - arch: x86_64
             runner: windows-2025-vs2026
-            vs_arch: x64
+            vcvars_arch: x64
             qt_arch: win64_msvc2022_64
             bin_dir: x64
-            use_preset: true
+            vc_redist_arch: x64
             configure_cmd: 'cmake --preset ninja-release-x64 -DQt6_DIR="%Qt6_DIR%"'
             build_cmd: 'cmake --build --preset ninja-build-release-x64 --target dolphin-emu'
           - arch: arm64-v8a
             runner: windows-2025-vs2026
-            vs_arch: x64_arm64
+            vcvars_arch: amd64_arm64
             qt_arch: win64_msvc2022_arm64_cross_compiled
             bin_dir: ARM64
-            use_preset: true
+            vc_redist_arch: arm64
             configure_cmd: 'cmake --preset ninja-release-arm64 -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DQt6_DIR="%Qt6_DIR%"'
             build_cmd: 'cmake --build --preset ninja-build-release-arm64 --target dolphin-emu'
     env:
@@ -308,9 +308,6 @@ jobs:
           extra: '--autodesktop'
           set-env: true
 
-      - uses: egor-tensin/vs-shell@v2
-        with:
-          arch: ${{ matrix.vs_arch }}
       - uses: libsdl-org/setup-sdl@main
         id: sdl
         with:
@@ -321,6 +318,8 @@ jobs:
         shell: cmd
         working-directory: ${{ github.workspace }}
         run: |
+          for /f "usebackq delims=" %%i in (`vswhere -latest -property installationPath`) do set VS_PATH=%%i
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arch }}
           ${{ matrix.configure_cmd }}
           ${{ matrix.build_cmd }}
 
@@ -336,7 +335,7 @@ jobs:
             cd .\Binary\
           )
           fsutil file createnew FIX-VCRUNTIME140-ERROR.txt 0
-          echo Download and install this: https://aka.ms/vs/17/release/vc_redist.${{ matrix.vs_arch }}.exe > .\FIX-VCRUNTIME140-ERROR.txt
+          echo Download and install this: https://aka.ms/vs/17/release/vc_redist.${{ matrix.vc_redist_arch }}.exe > .\FIX-VCRUNTIME140-ERROR.txt
 
       - name: "Package Windows Dolphin (${{ matrix.arch }})"
         shell: powershell
