@@ -1,0 +1,128 @@
+app-id: org.DolphinEmu.dolphin-emu
+branch: master
+runtime: org.kde.Platform
+runtime-version: 6.7
+sdk: org.kde.Sdk
+command: dolphin-emu-wrapper.sh
+rename-icon: dolphin-emu
+finish-args:
+  - --device=all # need for controllers
+  # the file picker uses portals but the set
+  # game directory feature still needs this
+  - --filesystem=host
+  - --socket=pulseaudio
+  - --env=QT_QPA_PLATFORM=xcb
+  - --socket=x11
+  - --share=network
+  - --share=ipc
+  # along with the bluez module, required for the
+  # emulated bluetooth adapter feature to work.
+  - --allow=bluetooth
+  - --filesystem=xdg-run/app/com.discordapp.Discord:create
+  - --filesystem=xdg-run/discord-ipc-0:create
+  - --talk-name=org.freedesktop.ScreenSaver
+  # required for Gamescope on Steam Deck
+  - --filesystem=xdg-run/gamescope-0:ro
+modules:
+  # needed for the bluetooth passthrough feature to work
+  - name: libusb
+    config-opts:
+      - --disable-static
+    cleanup:
+      - /include
+      - /lib/*.la
+      - /lib/pkgconfig
+    sources:
+      - type: archive
+        url: https://github.com/libusb/libusb/releases/download/v1.0.26/libusb-1.0.26.tar.bz2
+        sha256: 12ce7a61fc9854d1d2a1ffe095f7b5fac19ddba095c259e6067a46500381b5a5
+        x-checker-data:
+          type: anitya
+          project-id: 1749
+          stable-only: true
+          url-template: https://github.com/libusb/libusb/releases/download/v$version/libusb-$version.tar.bz2
+
+  # needed for the emulate bluetooth adapter feature to work
+  - name: bluez
+    config-opts:
+      - --enable-library
+      - --disable-manpages
+      - --disable-udev
+      - --disable-tools
+      - --disable-cups
+      - --disable-monitor
+      - --disable-client
+      - --disable-systemd
+      - --disable-a2dp
+      - --disable-avrcp
+      - --disable-network
+      - --disable-obex
+      - --disable-bap 
+      - --disable-mcp
+      - --with-dbusconfdir=/app/etc
+      - --with-dbussessionbusdir=/app/usr/lib/system-services
+    sources:
+      - type: archive
+        url: https://www.kernel.org/pub/linux/bluetooth/bluez-5.66.tar.xz
+        sha256: 39fea64b590c9492984a0c27a89fc203e1cdc74866086efb8f4698677ab2b574
+        x-checker-data:
+          type: anitya
+          project-id: 10029
+          stable-only: true
+          url-template: https://www.kernel.org/pub/linux/bluetooth/bluez-$version.tar.xz
+
+  # enables motion controls on non-wii controllers (switch, ps4, etc)
+  # requires a udev rule enabling Motion Sensors access
+  - name: libevdev
+    buildsystem: meson
+    config-opts:
+      - -Dtests=disabled
+      - -Ddocumentation=disabled
+    sources:
+      - type: archive
+        url: https://gitlab.freedesktop.org/libevdev/libevdev/-/archive/libevdev-1.13.0/libevdev-libevdev-1.13.0.tar.gz
+        sha256: 84f5b1a5265e8cd51b680877bbbd8ca29493b8b1868d37ffd598dc99e0d903cd
+        x-checker-data:
+          type: anitya
+          project-id: 20540
+          stable-only: true
+          url-template: https://gitlab.freedesktop.org/libevdev/libevdev/-/archive/libevdev-$version/libevdev-libevdev-$version.tar.gz
+
+  # needed for screensaver inhibition
+  - name: xdg-screensaver-shim
+    buildsystem: meson
+    sources:
+      - type: archive
+        url: https://github.com/Unrud/xdg-screensaver-shim/archive/0.0.2.tar.gz
+        sha256: 0ed2a69fe6ee6cbffd2fe16f85116db737f17fb1e79bfb812d893cf15c728399
+
+  - name: dolphin-emu
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DENABLE_ALSA=OFF
+      - -DENABLE_SDL=ON
+      - -DENABLE_EVDEV=ON
+      - -DDISTRIBUTOR=Dolphin Emulator Project
+      - -DCPACK_PACKAGE_CONTACT=Dolphin Emulator Project
+    cleanup:
+      - /share/man
+    sources:
+      - type: git
+        url: https://github.com/sharath-5br2r-apps/Dolphin-Extra
+        branch: master
+        disable-submodules: false
+      - type: file
+        path: dolphin-emu-wrapper.sh
+      - type: file
+        path: org.DolphinEmu.dolphin-emu.metainfo.xml
+    post-install:
+      - install -D -t ${FLATPAK_DEST}/bin/ dolphin-emu-wrapper.sh
+      - mv /app/share/applications/dolphin-emu.desktop /app/share/applications/org.DolphinEmu.dolphin-emu.desktop
+      - desktop-file-edit --set-key=Exec --set-value='/app/bin/dolphin-emu-wrapper.sh'
+        /app/share/applications/org.DolphinEmu.dolphin-emu.desktop
+      - desktop-file-edit --set-key=Name --set-value='Dolphin Emulator'
+        /app/share/applications/org.DolphinEmu.dolphin-emu.desktop
+      - rm -rf ${FLATPAK_DEST}/share/dolphin-emu/sys
+      - mv ${FLATPAK_BUILDER_BUILDDIR}/Data/Sys ${FLATPAK_DEST}/share/dolphin-emu/sys/
+      - install -Dm644 org.DolphinEmu.dolphin-emu.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/

@@ -1,0 +1,934 @@
+name: Sync And Build
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: '0 1/2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-upstream-release
+  cancel-in-progress: false
+
+jobs:
+  # ==========================================
+  # 1. CHECK JOB (Determines PR number & release tag)
+  # ==========================================
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.latest.outputs.pr_number }}
+      should_run: ${{ steps.check.outputs.should_run }}
+      release_tag: ${{ steps.check.outputs.release_tag }}
+      release_name: ${{ steps.check.outputs.release_name }}
+
+    steps:
+      - name: Determine latest upstream merged PR
+        id: latest
+        run: |
+          LATEST_PR=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls?state=closed&sort=updated&direction=desc&per_page=100" \
+            | jq -r '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | last | .number')
+
+          if [ -z "$LATEST_PR" ] || [ "$LATEST_PR" = "null" ]; then
+            echo "Error: No valid upstream PR found!"
+            exit 1
+          fi
+          echo "pr_number=$LATEST_PR" >> "$GITHUB_OUTPUT"
+          echo "Latest upstream merged PR number: $LATEST_PR"
+
+      - name: Check if already synced & compute release metadata
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ steps.latest.outputs.pr_number }}"
+          TAG="pr-$PR_NUM"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Triggered via workflow_dispatch; forcing run for $TAG"
+          elif git ls-remote --exit-code --tags "https://github.com/${{ github.repository }}.git" \
+              "refs/tags/sync/$TAG" >/dev/null 2>&1; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "$TAG already synced, nothing to do"
+            exit 0
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "$TAG is new, running full sync!"
+          fi
+
+          # Derive release tag & release name using upstream naming structure
+          EXISTING=$(gh api "repos/${{ github.repository }}/releases" --paginate --jq '.[].tag_name' \
+            | grep -E "^dolphin-pr-$PR_NUM(-r[0-9]+)?$" || true)
+
+          PR_JSON=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls/$PR_NUM" || true)
+          PR_TITLE=$(echo "$PR_JSON" | jq -r '.title // empty')
+
+          TITLE_SUFFIX=""
+          if [ -n "$PR_TITLE" ]; then
+            TITLE_SUFFIX=": $PR_TITLE"
+          fi
+
+          if [ -z "$EXISTING" ]; then
+            echo "release_tag=dolphin-pr-$PR_NUM" >> "$GITHUB_OUTPUT"
+            echo "release_name=Dolphin PR #$PR_NUM${TITLE_SUFFIX} + Custom Storage Location" >> "$GITHUB_OUTPUT"
+          else
+            MAX_REV=$(echo "$EXISTING" \
+              | sed -E "s/^dolphin-pr-$PR_NUM-r([0-9]+)\$/\1/; s/^dolphin-pr-$PR_NUM\$/1/" \
+              | sort -n | tail -1)
+            NEXT_REV=$((MAX_REV + 1))
+            echo "release_tag=dolphin-pr-$PR_NUM-r$NEXT_REV" >> "$GITHUB_OUTPUT"
+            echo "release_name=Dolphin PR #$PR_NUM${TITLE_SUFFIX} + Custom Storage Location (Update $NEXT_REV)" >> "$GITHUB_OUTPUT"
+          fi
+
+
+  # ==========================================
+  # 2. SYNC JOB (Fetches & merges upstream PR)
+  # ==========================================
+  sync:
+    needs: check
+    if: ${{ needs.check.outputs.should_run == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Clean existing release-sync branch
+        run: |
+          git branch -D release-sync 2>/dev/null || true
+          git push origin --delete release-sync 2>/dev/null || true
+
+      - name: Fetch upstream base commit & PR merge commit
+        id: pr_sha
+        run: |
+          # Rename initial local master branch to custom-patches to preserve custom changes
+          git branch -m master custom-patches
+          git remote add upstream https://github.com/dolphin-emu/dolphin.git || true
+          git fetch upstream master:master --quiet
+          PR_JSON=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls/${{ needs.check.outputs.pr_number }}")
+          MERGE_SHA=$(echo "$PR_JSON" | jq -r '.merge_commit_sha // empty')
+
+          if [ -n "$MERGE_SHA" ] && [ "$MERGE_SHA" != "null" ]; then
+            echo "Fetching upstream merge commit $MERGE_SHA..."
+            git fetch upstream "$MERGE_SHA" --quiet
+            echo "target_ref=$MERGE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "Fetching upstream PR head branch..."
+            git fetch upstream "pull/${{ needs.check.outputs.pr_number }}/head:upstream-pr-${{ needs.check.outputs.pr_number }}" --quiet
+            echo "target_ref=upstream-pr-${{ needs.check.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create fresh master branch starting directly from upstream codebase at target commit
+        run: |
+          git checkout -B master "${{ steps.pr_sha.outputs.target_ref }}"
+
+      - name: Merge custom patches onto master branch
+        id: merge
+        run: |
+          set +e
+          git merge custom-patches --no-edit -m "Merge custom patches into upstream PR #${{ needs.check.outputs.pr_number }}"
+          status=$?
+          set -e
+          if [ $status -ne 0 ]; then
+            git merge --abort || true
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report merge conflict
+        if: steps.merge.outputs.conflict == 'true'
+        run: |
+          echo "Automatic merge of upstream PR #${{ needs.check.outputs.pr_number }} produced conflicts."
+          exit 1
+
+      - name: Update submodules
+        run: git submodule update --init --recursive
+
+      - name: Push master branch
+        run: git push origin master --force
+
+
+  # ==========================================
+  # 3A. DOWNSTREAM BUILD JOB - ANDROID
+  # ==========================================
+  android:
+    needs: [check, sync]
+    if: always() && needs.sync.result == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - flavor: stock
+            task: ":app:assembleStockRelease"
+          - flavor: gfp
+            task: ":app:assembleGfpRelease"
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: "ccache"
+      CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          submodules: recursive
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-android-${{ matrix.flavor }}-${{ runner.os }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: sdkmanager "ndk;30.0.15729638"
+
+      - name: Cache CMake build output
+        uses: actions/cache@v4
+        with:
+          path: Source/Android/.cxx
+          key: cxx-${{ matrix.flavor }}-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'Source/Core/**/*.cpp', 'Source/Core/**/*.h') }}
+          restore-keys: cxx-${{ matrix.flavor }}-${{ runner.os }}-
+
+      - name: Decode release keystore
+        run: echo "${{ secrets.KEYSTORE_P12_BASE64 }}" | base64 -d > "$RUNNER_TEMP/dolphincs-release.p12"
+
+      - name: Build release APK (${{ matrix.flavor }})
+        working-directory: Source/Android
+        run: |
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          chmod +x gradlew
+
+          ./gradlew ${{ matrix.task }} --no-daemon \
+            -Pkeystore="$RUNNER_TEMP/dolphincs-release.p12" \
+            -Pstorepass="${{ secrets.KEYSTORE_PASSWORD }}" \
+            -Pkeyalias="${{ vars.KEYSTORE_ALIAS }}" \
+            -Pkeypass="${{ secrets.KEYSTORE_KEY_PASSWORD }}"
+
+          mkdir -p ../../artifact
+
+          FOUND_APK=$(find app/build/outputs/apk/${{ matrix.flavor }}/release -type f -name "*.apk" ! -name "*unaligned*" | head -n 1)
+
+          if [ -z "$FOUND_APK" ]; then
+            FOUND_APK=$(find app/build/outputs/apk -type f -name "*.apk" ! -name "*unaligned*" | grep -i "${{ matrix.flavor }}" | head -n 1)
+          fi
+
+          if [ -n "$FOUND_APK" ]; then
+            mv "$FOUND_APK" "../../artifact/dolphin-extra-android-${{ matrix.flavor }}-vpr${PR_NUM}-all.apk"
+          else
+            echo "Failed to locate APK for flavor '${{ matrix.flavor }}'!"
+            exit 1
+          fi
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/30.0.15729638
+
+      - name: Remove decoded keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/dolphincs-release.p12"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.flavor }}-build
+          path: ./artifact/*.apk
+          retention-days: 1
+
+
+  # ==========================================
+  # 3B. DOWNSTREAM BUILD JOB - WINDOWS
+  # ==========================================
+  windows:
+    needs: [check, sync]
+    if: always() && needs.sync.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: windows-2025-vs2026
+            vcvars_arch: x64
+            qt_arch: win64_msvc2022_64
+            bin_dir: x64
+            vc_redist_arch: x64
+            configure_cmd: 'cmake --preset ninja-release-x64 -DQt6_DIR="%Qt6_DIR%"'
+            build_cmd: 'cmake --build --preset ninja-build-release-x64 --target dolphin-emu'
+          - arch: arm64-v8a
+            runner: windows-2025-vs2026
+            vcvars_arch: amd64_arm64
+            qt_arch: win64_msvc2022_arm64_cross_compiled
+            bin_dir: ARM64
+            vc_redist_arch: arm64
+            configure_cmd: 'cmake --preset ninja-release-arm64 -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DQt6_DIR="%Qt6_DIR%"'
+            build_cmd: 'cmake --build --preset ninja-build-release-arm64 --target dolphin-emu'
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: "ccache"
+      CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          submodules: recursive
+
+      - name: Install Dependencies
+        run: choco install pkgconfiglite curl ninja nasm -y
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-windows-${{ matrix.arch }}-${{ runner.os }}
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          target: 'desktop'
+          arch: ${{ matrix.qt_arch }}
+          extra: '--autodesktop'
+          set-env: true
+
+      - uses: libsdl-org/setup-sdl@main
+        id: sdl
+        with:
+          version: 2-latest
+          version-sdl-image: 2-latest
+
+      - name: "Build Windows Dolphin (${{ matrix.arch }})"
+        shell: cmd
+        working-directory: ${{ github.workspace }}
+        run: |
+          for /f "usebackq delims=" %%i in (`vswhere -latest -property installationPath`) do set VS_PATH=%%i
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arch }}
+          ${{ matrix.configure_cmd }}
+          ${{ matrix.build_cmd }}
+
+      - name: "Prepare Windows Artifact Structure"
+        shell: cmd
+        working-directory: ${{ github.workspace }}
+        run: |
+          if exist .\Binary\${{ matrix.bin_dir }}\ (
+            Xcopy /Y /E /I .\Data\Sys .\Binary\${{ matrix.bin_dir }}\Sys
+            cd .\Binary\${{ matrix.bin_dir }}\
+          ) else (
+            Xcopy /Y /E /I .\Data\Sys .\Binary\Sys
+            cd .\Binary\
+          )
+          fsutil file createnew FIX-VCRUNTIME140-ERROR.txt 0
+          echo Download and install this: https://aka.ms/vs/17/release/vc_redist.${{ matrix.vc_redist_arch }}.exe > .\FIX-VCRUNTIME140-ERROR.txt
+
+      - name: "Package Windows Dolphin (${{ matrix.arch }})"
+        shell: powershell
+        working-directory: ${{ github.workspace }}
+        run: |
+          $PR_NUM = "${{ needs.check.outputs.pr_number }}"
+          $FILE_NAME = "dolphin-extra-windows-vpr${PR_NUM}-${{ matrix.arch }}.zip"
+
+          New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
+          if (Test-Path ".\Binary\${{ matrix.bin_dir }}\") {
+            Set-Location -Path ".\Binary\${{ matrix.bin_dir }}\"
+          } else {
+            Set-Location -Path ".\Binary\"
+          }
+          attrib +r Sys\*.* /s 2>$null
+          fsutil file createnew portable.txt 0
+          7z a "$FILE_NAME" .\*
+          Move-Item -Path "$FILE_NAME" -Destination "..\..\artifact\" -Force
+
+      - name: "Upload Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}-build
+          path: "./artifact/*.zip"
+          retention-days: 1
+
+
+  # ==========================================
+  # 3C. DOWNSTREAM BUILD JOB - LINUX
+  # ==========================================
+  linux:
+    needs: [check, sync]
+    if: always() && needs.sync.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            target_triple: ""
+            cmake_flags: ""
+          - arch: arm64-v8a
+            runner: ubuntu-24.04-arm
+            target_triple: ""
+            cmake_flags: ""
+    env:
+      CMAKE_C_COMPILER_LAUNCHER: "ccache"
+      CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          submodules: recursive
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt install libcurl4-openssl-dev build-essential git cmake ffmpeg libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libevdev-dev libudev-dev libxrandr-dev libxi-dev libpulse-dev libqt6svg6-dev libasound2-dev libgudev-1.0-dev liblzma-dev libxi-dev libxrandr-dev libxinerama-dev libxcursor-dev libsoundtouch-dev libminiupnpc-dev libmbedtls-dev libao-dev libbluetooth-dev libreadline-dev libusb-1.0-0-dev qt6-base-dev qt6-base-private-dev qt6-tools-dev-tools libzstd-dev libzstd1 ninja-build ccache p7zip-full libarchive-dev -y
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then
+            sudo apt install libc6-i386 gcc-multilib g++-multilib -y || true
+          fi
+          sudo apt install libudev-dev libsystemd-dev -y || sudo apt install libeudev-dev -y
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-linux-${{ matrix.arch }}-${{ runner.os }}
+
+      - name: Configure CMake (${{ matrix.arch }})
+        run: |
+          mkdir build
+          cd build
+          cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DLINUX_LOCAL_DEV=true ${{ matrix.cmake_flags }} ..
+
+      - name: Build (${{ matrix.arch }})
+        run: |
+          cd build
+          ninja dolphin-emu
+          touch Binaries/portable.txt
+
+      - name: "Package Linux Dolphin (${{ matrix.arch }})"
+        working-directory: ${{ github.workspace }}
+        run: |
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          FILE_NAME="dolphin-extra-linux-vpr${PR_NUM}-${{ matrix.arch }}.zip"
+
+          mkdir -p artifact
+          cd build/Binaries
+          zip -r "../../artifact/${FILE_NAME}" ./*
+
+      - name: "Upload Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}-build
+          path: "./artifact/*.zip"
+          retention-days: 1
+
+
+  # ==========================================
+  # 3D. DOWNSTREAM BUILD JOB - MACOS
+  # ==========================================
+  macos:
+    needs: [check, sync]
+    if: always() && needs.sync.result == 'success'
+    runs-on: macos-15-intel
+    env:
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPRESS: true
+      CCACHE_COMPRESSLEVEL: 9
+      CCACHE_MAXSIZE: 200M
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install Packages
+        env:
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+          HOMEBREW_NO_ANALYTICS: 1
+        run: |
+          brew install gnu-sed
+          if ! brew install ccache ninja libspng; then
+            brew update
+            brew install ccache ninja libspng
+          fi
+
+      - name: Cache Dependencies
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: ~/deps
+          key: macOS deps ${{ hashFiles('.github/workflows/scripts/macos/build-dependencies.sh') }}
+
+      - name: Build Dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: .github/workflows/scripts/macos/build-dependencies.sh
+
+      - name: Cache MoltenVK
+        id: cache-moltenvk
+        uses: actions/cache@v4
+        with:
+          path: ~/moltenvk
+          key: macOS MoltenVK ${{ hashFiles('Externals/MoltenVK') }}
+
+      - name: Build MoltenVK
+        if: steps.cache-moltenvk.outputs.cache-hit != 'true'
+        run: |
+          MVK_VER="$(sed -nr 's/^.*set\(MOLTENVK_VERSION "([^"]+)".*$/\1/p' Externals/MoltenVK/CMakeLists.txt)"
+          if [ -z "$MVK_VER" ]; then
+            echo "::error::Failed to parse MoltenVK version from CMakeLists"
+            exit 1
+          fi
+          git clone --depth 1 --branch "$MVK_VER" https://github.com/KhronosGroup/MoltenVK.git mvk-build
+          pushd mvk-build
+          git apply ../Externals/MoltenVK/patches/*.patch
+          ./fetchDependencies --macos
+          make macos
+          chmod 755 Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib
+          mkdir -p "$HOME/moltenvk/lib/"
+          mv Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib "$HOME/moltenvk/lib/"
+          popd
+          rm -rf mvk-build
+
+      - name: Prepare ccache timestamp
+        id: ccache_cache_timestamp
+        run: echo "timestamp=$(date -u "+%Y-%m-%d-%H;%M;%S")" >> $GITHUB_OUTPUT
+
+      - name: Cache ccache cache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: macOS ccache ${{ steps.ccache_cache_timestamp.outputs.timestamp }}
+          restore-keys: macOS ccache
+
+      - name: Generate CMake Files
+        run: |
+          COMMON_ARGS=(
+            -DCMAKE_PREFIX_PATH="$HOME/deps;$HOME/moltenvk"
+            -DCMAKE_BUILD_TYPE=Release
+            -DUSE_BUNDLED_MOLTENVK=OFF
+            -DMACOS_CODE_SIGNING=OFF
+            -DPOSTPROCESS_BUNDLE=ON
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+            -DUSE_SYSTEM_LIBS=OFF
+            -DUSE_SYSTEM_BZIP2=ON
+            -DUSE_SYSTEM_CURL=ON
+            -DUSE_SYSTEM_ICONV=ON
+            -DUSE_SYSTEM_SDL3=OFF
+            -GNinja
+          )
+
+          cmake -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+                -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
+                -DCMAKE_SYSTEM_NAME=Darwin \
+                -DCMAKE_OSX_DEPLOYMENT_TARGET=11.00 \
+                "${COMMON_ARGS[@]}" \
+                -B build .
+          cmake -DCMAKE_OSX_ARCHITECTURES=arm64 \
+                -DCMAKE_SYSTEM_PROCESSOR=arm64 \
+                -DCMAKE_SYSTEM_NAME=Darwin \
+                -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+                "${COMMON_ARGS[@]}" \
+                -B build-arm .
+
+      - name: Build Dolphin (x86_64)
+        working-directory: build
+        run: |
+          ccache -z
+          ninja dolphin-emu
+          ccache -s
+
+      - name: Build Dolphin (arm64)
+        working-directory: build-arm
+        run: |
+          ccache -z
+          ninja dolphin-emu
+          ccache -s
+
+      - name: Prepare Build Artifacts
+        id: create-artifact
+        run: |
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          lipo -create build/Binaries/DolphinQt.app/Contents/MacOS/DolphinQt \
+                       build-arm/Binaries/DolphinQt.app/Contents/MacOS/DolphinQt \
+                       -o dolphin-universal
+          mv dolphin-universal build/Binaries/DolphinQt.app/Contents/MacOS/DolphinQt
+          APPNAME="dolphin-extra-macos-vpr${PR_NUM}-universal"
+          mv build/Binaries/DolphinQt.app "${APPNAME}.app"
+          tar --options xz:compression-level=9 -cvJf "${APPNAME}.tar.xz" "${APPNAME}.app"
+          mkdir -p artifact
+          mv "${APPNAME}.tar.xz" artifact/
+          echo "name=$APPNAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal-build
+          path: "./artifact/*.tar.xz"
+          retention-days: 1
+
+
+  # ==========================================
+  # 3E. DOWNSTREAM BUILD JOB - FLATPAK
+  # ==========================================
+  flatpak:
+    needs: [check, sync]
+    if: always() && needs.sync.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Install Flatpak tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.kde.Sdk//6.7 org.kde.Platform//6.7
+
+      - name: Pin Flatpak manifest to workflow ref
+        run: |
+          REPO_URL="https://github.com/sharath-5br2r-apps/Dolphin-Extra"
+          sed -i '/^[[:space:]]*tag:[[:space:]]/d' Distribution/flatpak/flatpak.yml
+          sed -i '/^[[:space:]]*commit:[[:space:]]/d' Distribution/flatpak/flatpak.yml
+          sed -i "/url:.*Dolphin-Extra/a\\        commit: ${GITHUB_SHA}" Distribution/flatpak/flatpak.yml
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            sed -i "/url:.*Dolphin-Extra/a\\        tag: ${GITHUB_REF_NAME}" Distribution/flatpak/flatpak.yml
+          fi
+
+      - name: Build Flatpak
+        run: |
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          BUNDLE="dolphin-extra-vpr${PR_NUM}-${{ matrix.arch }}.flatpak"
+          flatpak-builder --user --install-deps-from=flathub --force-clean --repo=flatpak-repo build-flatpak Distribution/flatpak/flatpak.yml
+          flatpak build-bundle --arch=${{ matrix.arch }} flatpak-repo "${BUNDLE}" org.DolphinEmu.dolphin-emu
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-${{ matrix.arch }}-build
+          path: "*.flatpak"
+          retention-days: 1
+
+
+  # ==========================================
+  # 3F. DOWNSTREAM BUILD JOB - APPIMAGE
+  # ==========================================
+  appimage:
+    needs: [check, sync]
+    if: always() && needs.sync.result == 'success'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+            patchelf_arch: x86_64
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            patchelf_arch: aarch64
+    steps:
+      - name: Checkout master branch
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Get Date
+        id: get-date
+        run: echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: build-ccache-appimage-${{ matrix.arch }}-${{ steps.get-date.outputs.date }}
+          restore-keys: build-ccache-appimage-${{ matrix.arch }}-
+        env:
+          CCACHE_MAXSIZE: 200M
+
+
+      - name: Install Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential dialog dpkg libbluetooth-dev liblz4-dev liblzma-dev libssl-dev libopus-dev libpng-dev libsystemd-dev \
+          libzip-dev libzstd-dev zlib1g-dev libasound2-dev libpulse-dev pulseaudio p7zip p7zip-full libsfml-dev libminiupnpc-dev libmbedtls-dev libpugixml-dev \
+          libbz2-dev liblzo2-dev libxi-dev libavcodec-dev libudev-dev libusb-1.0-0-dev libevdev-dev libc6-dev libhidapi-dev libavformat-dev libavdevice-dev \
+          libfmt-dev libwayland-dev libxrandr-dev libglu1-mesa-dev libcurl4-openssl-dev x11-utils zenity wget curl git gettext ccache make cmake ninja-build \
+          libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-icccm4 libxcb-image0-dev libxcb-cursor-dev libspng-dev \
+          qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools libqt6svg6-dev qt6-l10n-tools
+
+      - name: Update Patchelf
+        run: |
+          PATCHELFVER=0.14.5
+          curl -sL https://github.com/NixOS/patchelf/releases/download/${PATCHELFVER}/patchelf-${PATCHELFVER}-${{ matrix.patchelf_arch }}.tar.gz -o /tmp/patchelf.tar.gz
+          tar -xvf /tmp/patchelf.tar.gz --directory /tmp/ ./bin/patchelf --strip-components=2
+          sudo mv /tmp/patchelf /usr/bin
+          patchelf --version
+
+      - name: Build Dolphin
+        run: |
+          mkdir -p "$HOME/.ccache"
+          mkdir build
+          cd build
+          cmake .. -GNinja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DBIN_INSTALL_DIR="install/usr/bin" \
+            -DCMAKE_INSTALL_PREFIX="install/usr" \
+            -DINC_INSTALL_DIR="install/usr/include" \
+            -DLIB_INSTALL_DIR="install/usr/lib" \
+            -DPKGCONFIG_INSTALL_DIR="install/usr/lib/pkgconfig" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DENABLE_NOGUI=OFF
+          ninja
+          ninja install
+
+      - name: Package Dolphin-AppImage
+        run: |
+          ARCH="${{ matrix.arch }}"
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          FILE_NAME="dolphin-extra-linux-vpr${PR_NUM}-${ARCH}.AppImage"
+
+          cd /tmp
+          curl -sSfLO "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${ARCH}.AppImage"
+          chmod a+x linuxdeploy-${ARCH}.AppImage
+          ./linuxdeploy-${ARCH}.AppImage --appimage-extract
+          curl -sSfL "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${ARCH}.AppImage" \
+            -o /tmp/squashfs-root/usr/bin/linuxdeploy-plugin-qt.AppImage
+          chmod a+x /tmp/squashfs-root/usr/bin/linuxdeploy-plugin-qt.AppImage
+
+          cd $GITHUB_WORKSPACE
+          mkdir -p squashfs-root
+          cp -a build/install/usr $GITHUB_WORKSPACE/squashfs-root/
+          if [ -f Data/dolphin-emu.svg ]; then
+            cp Data/dolphin-emu.svg ./squashfs-root/dolphin-emu.svg
+          fi
+          if [ -f Data/dolphin-emu.desktop ]; then
+            cp Data/dolphin-emu.desktop ./squashfs-root/dolphin-emu.desktop
+          fi
+
+          curl -sSfL https://github.com/AppImage/AppImageKit/releases/download/continuous/runtime-${ARCH} -o ./squashfs-root/runtime
+          chmod a+x ./squashfs-root/runtime
+
+          mkdir -p artifact
+          ARCH=${ARCH} /tmp/squashfs-root/AppRun --appdir="$GITHUB_WORKSPACE"/squashfs-root/ --plugin qt --output appimage || true
+
+          BUILT_APPIMAGE=$(ls *.AppImage 2>/dev/null | head -n 1)
+          if [ -n "$BUILT_APPIMAGE" ]; then
+            mv "$BUILT_APPIMAGE" "artifact/${FILE_NAME}"
+          fi
+        continue-on-error: true
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage-${{ matrix.arch }}-build
+          path: "./artifact/*.AppImage"
+          retention-days: 1
+
+
+  # ==========================================
+  # 4. RELEASE JOB (Uses Upstream Tag & Title Naming)
+  # ==========================================
+  release:
+    needs: [check, android, windows, linux, macos, flatpak, appimage]
+    if: always() && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.linux.result == 'success' || needs.macos.result == 'success' || needs.appimage.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release-files
+          pattern: "*-build"
+          merge-multiple: true
+      - name: Get Next Version Code
+        id: version
+        run: |
+          set -euo pipefail
+          YEAR=$(date -u +"%y")
+          TAG=$( { gh release list -R sharath-5br2r/my-patched-apks --exclude-drafts -L 100 2>/dev/null || true; } | awk -F '\t' -v year="$YEAR" '$3 ~ "^" year "[0-9][0-9][0-9][0-9]$" {print $3}' | sort -r | head -n 1 )
+          if [ -n "$TAG" ]; then
+              BUILD_COUNT=${TAG:2:4}
+              BUILD_COUNT=$((10#$BUILD_COUNT + 1))
+          else
+              BUILD_COUNT=1
+          fi
+
+          NEXT_VER_CODE=$(printf "%s%04d" "$YEAR" "$BUILD_COUNT")
+          echo "NEXT_VER_CODE=$NEXT_VER_CODE" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          set -euo pipefail
+          PR_NUM="${{ needs.check.outputs.pr_number }}"
+
+          echo "Built from custom master branch, merged with the custom user data storage location feature (Scoped Storage / Internal Storage / SD Card) and Games on Wii Menu Patch." > release_notes.md
+          echo "" >> release_notes.md
+
+          if [ -n "$PR_NUM" ] && [ "$PR_NUM" != "null" ]; then
+              echo "Built from upstream Dolphin PR \`#${PR_NUM}\`." >> release_notes.md
+              echo "" >> release_notes.md
+              PR_JSON=$(curl -s "https://api.github.com/repos/dolphin-emu/dolphin/pulls/$PR_NUM" || true)
+              PR_TITLE=$(echo "$PR_JSON" | jq -r '.title // empty')
+              PR_AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login // empty')
+              PR_URL=$(echo "$PR_JSON" | jq -r '.html_url // empty')
+              PR_BODY=$(echo "$PR_JSON" | jq -r '.body // empty')
+
+              if [ -n "$PR_TITLE" ]; then
+                  echo "### Upstream Dolphin PR [#${PR_NUM}](${PR_URL})" >> release_notes.md
+                  echo "**Title:** ${PR_TITLE}" >> release_notes.md
+                  if [ -n "$PR_AUTHOR" ]; then
+                      echo "**Author:** [@${PR_AUTHOR}](https://github.com/${PR_AUTHOR})" >> release_notes.md
+                  fi
+                  echo "" >> release_notes.md
+                  if [ -n "$PR_BODY" ]; then
+                      echo "#### PR Description" >> release_notes.md
+                      echo "${PR_BODY}" >> release_notes.md
+                      echo "" >> release_notes.md
+                  fi
+              fi
+          fi
+
+          echo "This is an unofficial community build, not affiliated with the Dolphin team." >> release_notes.md
+
+      - name: Generate build.json
+        run: |
+          set -euo pipefail
+          python3 -c '
+          import os, json, glob, subprocess, zipfile, re
+
+          build_json = {}
+          apks = glob.glob("./release-files/*.apk")
+          changelog = open("release_notes.md").read() if os.path.exists("release_notes.md") else ""
+          applied_patches = [
+              "Custom Storage Location (Scoped Storage / Internal Storage / SD Card)",
+              "Better Wii Menu (Games on Wii Menu Patch)"
+          ]
+
+          for apk in apks:
+              filename = os.path.basename(apk)
+              name = filename
+              arch = "universal"
+              if "arm64" in filename.lower():
+                  arch = "arm64-v8a"
+              elif "x86_64" in filename.lower():
+                  arch = "x86_64"
+              elif "v7a" in filename.lower() or "arm32" in filename.lower():
+                  arch = "armeabi-v7a"
+
+              min_sdk = "21"
+              native_libraries = []
+              densities = []
+
+              # Inspect APK using aapt2/aapt if available, else zipfile
+              try:
+                  aapt = subprocess.run(["which", "aapt2"], capture_output=True, text=True).stdout.strip() or subprocess.run(["which", "aapt"], capture_output=True, text=True).stdout.strip()
+                  if aapt:
+                      out = subprocess.run([aapt, "dump", "badging", apk], capture_output=True, text=True).stdout
+                      m_sdk = re.search(r"(?:sdkVersion|minSdkVersion):\x27([^\x27]+)\x27", out)
+                      if m_sdk:
+                          min_sdk = m_sdk.group(1)
+                      m_den = re.search(r"densities:\s*\x27([^\x27]+)\x27", out)
+                      if m_den:
+                          densities = [d for d in m_den.group(1).split() if d]
+                      m_nat = re.search(r"native-code:\s*\x27([^\x27]+)\x27", out)
+                      if m_nat:
+                          native_libraries = [n for n in m_nat.group(1).split() if n]
+              except Exception as e:
+                  print(f"aapt dump failed: {e}")
+
+              if not native_libraries and zipfile.is_zipfile(apk):
+                  try:
+                      with zipfile.ZipFile(apk, "r") as z:
+                          libs = set()
+                          for f in z.namelist():
+                              if f.startswith("lib/") and "/" in f[4:]:
+                                  libs.add(f.split("/")[1])
+                          if libs:
+                              native_libraries = sorted(list(libs))
+                  except Exception as e:
+                      print(f"zip inspection failed: {e}")
+
+              entry_key = filename.lower()
+              ext = filename.split(".")[-1] if "." in filename else "apk"
+              meta_item = {
+                  "name": name,
+                  "arch": arch,
+                  "ext": ext,
+                  "version": "${{ needs.check.outputs.release_name }}",
+                  "patches": "dolphin-extra",
+                  "changelog": changelog,
+                  "applied_patches": applied_patches
+              }
+              if ext.lower() in ["apk", "apks", "xapk", "apkm"]:
+                  meta_item["min_sdk"] = min_sdk
+                  meta_item["densities"] = densities
+                  meta_item["native_libraries"] = native_libraries
+
+              build_json[entry_key] = meta_item
+
+          with open("build.json", "w") as f:
+              json.dump(build_json, f, indent=2)
+          '
+          cp build.json ./release-files/build.json
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ needs.check.outputs.release_tag }}"
+          name: "${{ needs.check.outputs.release_name }}"
+          target_commitish: master
+          prerelease: false
+          make_latest: true
+          files: ./release-files/*
+          body_path: release_notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag sync marker
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "sync/pr-${{ needs.check.outputs.pr_number }}"
+          git push origin "sync/pr-${{ needs.check.outputs.pr_number }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
