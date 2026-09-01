@@ -16,6 +16,7 @@ namespace Config
 // SYSCONF.IPL
 
 extern const Info<bool> SYSCONF_SCREENSAVER;
+extern const Info<bool> SYSCONF_SAVE_REPLAYS;
 extern const Info<u32> SYSCONF_LANGUAGE;
 extern const Info<u32> SYSCONF_COUNTRY;
 extern const Info<bool> SYSCONF_WIDESCREEN;
@@ -36,6 +37,6 @@ struct SYSCONFSetting
   SysConf::Entry::Type type;
 };
 
-extern const std::array<SYSCONFSetting, 11> SYSCONF_SETTINGS;
+extern const std::array<SYSCONFSetting, 12> SYSCONF_SETTINGS;
 
 }  // namespace Config
