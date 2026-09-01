@@ -889,3 +889,9 @@ jobs:
           git push origin "sync/pr-${{ needs.check.outputs.pr_number }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  trigger_cleanup:
+    needs: [build]
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/cleanup.yml
+    secrets: inherit
