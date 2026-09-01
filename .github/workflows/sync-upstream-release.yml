@@ -1,7 +1,6 @@
 name: Sync And Build
 
-permissions:
-  contents: write
+permissions: write-all
 
 on:
   schedule:
