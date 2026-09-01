@@ -891,7 +891,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   trigger_cleanup:
-    needs: [build]
-    if: ${{ needs.build.result == 'success' }}
+    needs: [release]
+    if: ${{ needs.release.result == 'success' }}
     uses: ./.github/workflows/cleanup.yml
     secrets: inherit
