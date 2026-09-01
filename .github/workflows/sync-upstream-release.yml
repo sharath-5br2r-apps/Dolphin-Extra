@@ -892,6 +892,6 @@ jobs:
 
   trigger_cleanup:
     needs: [build]
-    if: ${{ !cancelled() }}
+    if: ${{ needs.build.result == 'success' }}
     uses: ./.github/workflows/cleanup.yml
     secrets: inherit
