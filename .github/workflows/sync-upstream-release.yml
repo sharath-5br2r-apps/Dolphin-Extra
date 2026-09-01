@@ -346,21 +346,29 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
           
+          # Locate built binary directory
+          $BIN_PATH = ".\Binary\${{ matrix.bin_dir }}"
+          if (-not (Test-Path $BIN_PATH)) {
+            $BIN_PATH = ".\Binary"
+          }
+
           # Prepare Zip Portable Package
-          Push-Location ".\Binary\${{ matrix.bin_dir }}\"
+          Push-Location $BIN_PATH
           attrib +r Sys\*.* /s 2>$null
           fsutil file createnew portable.txt 0
-          7z a "..\..\artifact\$ZIP_NAME" .\*
+          7z a "$PWD\..\..\artifact\$ZIP_NAME" .\*
           Pop-Location
 
           # Prepare NSIS Setup Installer Package
           if (Get-Command makensis -ErrorAction SilentlyContinue) {
             Push-Location "Installer"
             makensis /DDOLPHIN_ARCH=${{ matrix.bin_dir }} /DPRODUCT_VERSION=vpr${PR_NUM} Installer.nsi
-            Move-Item -Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe" -Destination "..\artifact\$EXE_NAME" -Force
+            if (Test-Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe") {
+              Move-Item -Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe" -Destination "..\artifact\$EXE_NAME" -Force
+            }
             Pop-Location
           } else {
-            Write-Host "makensis not found! Installing nsis via choco or skipping NSIS build..."
+            Write-Host "makensis not found! Skipping NSIS build..."
           }
 
       - name: "Upload Artifact"
