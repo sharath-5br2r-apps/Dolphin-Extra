@@ -167,7 +167,7 @@ NetPlayServer::NetPlayServer(const u16 port, const bool forward_port, NetPlayUI*
     is_connected = true;
     m_do_loop = true;
     m_thread = std::thread(&NetPlayServer::ThreadFunc, this);
-    m_target_buffer_size = 5;
+    m_minimum_buffer_size = 3;
     m_chunked_data_thread = std::thread(&NetPlayServer::ChunkedDataThreadFunc, this);
 
 #ifdef USE_UPNP
@@ -448,6 +448,7 @@ ConnectionError NetPlayServer::OnConnect(ENetPeer* incoming_connection, sf::Pack
   Client new_player{};
   new_player.pid = GiveFirstAvailableIDTo(incoming_connection);
   new_player.socket = incoming_connection;
+  new_player.buffer = m_minimum_buffer_size;
 
   received_packet >> new_player.revision;
   received_packet >> new_player.name;
@@ -482,7 +483,7 @@ ConnectionError NetPlayServer::OnConnect(ENetPeer* incoming_connection, sf::Pack
   }
 
   if (!m_host_input_authority)
-    SendResponseToPlayer(new_player, MessageID::PadBuffer, m_target_buffer_size);
+    SendResponseToPlayer(new_player, MessageID::PadBufferMinimum, m_minimum_buffer_size);
 
   SendResponseToPlayer(new_player, MessageID::HostInputAuthority, m_host_input_authority);
 
@@ -493,6 +494,9 @@ ConnectionError NetPlayServer::OnConnect(ENetPeer* incoming_connection, sf::Pack
 
     SendResponseToPlayer(new_player, MessageID::GameStatus, existing_player.pid,
                          static_cast<u8>(existing_player.game_status));
+						 
+	SendResponseToPlayer(new_player, MessageID::PadBufferPlayer, existing_player.pid,
+                         static_cast<u8>(existing_player.buffer));
   }
 
   if (Config::Get(Config::NETPLAY_ENABLE_QOS))
@@ -682,19 +686,19 @@ void NetPlayServer::UpdateWiimoteMapping()
 }
 
 // called from ---GUI--- thread and ---NETPLAY--- thread
-void NetPlayServer::AdjustPadBufferSize(unsigned int size)
+void NetPlayServer::AdjustMinimumPadBufferSize(unsigned int size)
 {
   std::lock_guard lkg(m_crit.game);
 
-  m_target_buffer_size = size;
+  m_minimum_buffer_size = size;
 
   // not needed on clients with host input authority
   if (!m_host_input_authority)
   {
     // tell clients to change buffer size
     sf::Packet spac;
-    spac << MessageID::PadBuffer;
-    spac << m_target_buffer_size;
+    spac << MessageID::PadBufferMinimum;
+    spac << m_minimum_buffer_size;
 
     SendAsyncToClients(std::move(spac));
   }
@@ -715,7 +719,7 @@ void NetPlayServer::SetHostInputAuthority(const bool enable)
 
   // resend pad buffer to clients when disabled
   if (!m_host_input_authority)
-    AdjustPadBufferSize(m_target_buffer_size);
+    AdjustMinimumPadBufferSize(m_minimum_buffer_size);
 }
 
 void NetPlayServer::SendAsync(sf::Packet&& packet, const PlayerId pid, const u8 channel_id)
@@ -787,6 +791,22 @@ unsigned int NetPlayServer::OnData(sf::Packet& packet, Client& player)
     SendToClients(spac, player.pid);
   }
   break;
+  
+  case MessageID::PadBufferPlayer:
+  {
+	u32 buffer;
+	packet >> buffer;
+
+	player.buffer = buffer;
+
+	sf::Packet spac;
+	spac << MessageID::PadBufferPlayer;
+	spac << player.pid;
+	spac << buffer;
+
+	SendToClients(spac, player.pid);
+	}
+  break;
 
   case MessageID::ChunkedDataProgress:
   {
@@ -811,6 +831,47 @@ unsigned int NetPlayServer::OnData(sf::Packet& packet, Client& player)
     }
   }
   break;
+
+  case MessageID::PadSpectator:
+  {
+    bool spectator;
+    packet >> spectator;
+
+    auto padmap = GetPadMapping();
+  
+    int player_port = -1;
+    for (int i = 0; i < (int)padmap.size(); i++)
+    {
+      if (padmap[i] == player.pid)
+      {
+        player_port = i;
+        break;
+      }
+    }
+
+    if (spectator)
+    {
+      if (player_port != -1)
+        padmap[player_port] = 0;
+    }
+    else
+    {
+      bool assigned = false;
+      for (int i = 0; i < (int)padmap.size(); i++)
+      {
+        if (padmap[i] == 0)
+        {
+          padmap[i] = player.pid;
+          assigned = true;
+          break;
+        }
+      }
+    }
+
+    this->SetPadMapping(padmap);
+  }
+  break;
+
 
   case MessageID::PadData:
   {
@@ -1479,6 +1540,7 @@ bool NetPlayServer::SetupNetSettings()
   settings.golf_mode = Config::Get(Config::NETPLAY_NETWORK_MODE) == "golf";
   settings.use_fma = DoAllPlayersHaveHardwareFMA();
   settings.hide_remote_gbas = Config::Get(Config::NETPLAY_HIDE_REMOTE_GBAS);
+  settings.spectator_mode = Config::Get(Config::NETPLAY_SPECTATOR_MODE);
 
   // Unload GameINI to restore things to normal
   Config::RemoveLayer(Config::LayerType::GlobalGame);
@@ -1589,7 +1651,7 @@ bool NetPlayServer::StartGame()
 
   // no change, just update with clients
   if (!m_host_input_authority)
-    AdjustPadBufferSize(m_target_buffer_size);
+    AdjustMinimumPadBufferSize(m_minimum_buffer_size);
 
   m_current_golfer = 1;
   m_pending_golfer = 0;
@@ -1624,6 +1686,7 @@ bool NetPlayServer::StartGame()
   spac << m_settings.oc_factor;
   spac << m_settings.vi_oc_enable;
   spac << m_settings.vi_oc_factor;
+  spac << m_settings.spectator_mode;
 
   for (auto slot : ExpansionInterface::SLOTS)
     spac << static_cast<int>(m_settings.exi_device[slot]);

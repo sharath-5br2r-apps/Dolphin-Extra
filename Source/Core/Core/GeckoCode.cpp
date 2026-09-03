@@ -22,6 +22,8 @@
 #include "Core/PowerPC/PowerPC.h"
 #include "Core/System.h"
 
+#include <iostream>
+
 namespace Gecko
 {
 static constexpr u32 CODE_SIZE = 8;

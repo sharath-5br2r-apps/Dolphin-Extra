@@ -17,6 +17,9 @@
 #include <QStyleHints>
 #include <QVBoxLayout>
 #include <QWindow>
+#include <QMessageBox>
+#include <QByteArray>
+#include <QJsonDocument>
 
 #include <fmt/format.h>
 
@@ -40,6 +43,10 @@
 #include "Common/ScopeGuard.h"
 #include "Common/Version.h"
 #include "Common/WindowSystemInfo.h"
+#include "Common/HttpRequest.h"
+#include "Common/scmrev.h"
+#include "Common/ScopeGuard.h"
+#include "Common/StringUtil.h"
 
 #include "Core/AchievementManager.h"
 #include "Core/Boot/Boot.h"
@@ -67,6 +74,7 @@
 #include "Core/NetPlayServer.h"
 #include "Core/State.h"
 #include "Core/System.h"
+#include "Core/WiiForwarder.h"
 #include "Core/WiiUtils.h"
 
 #include "DiscIO/DirectoryBlob.h"
@@ -106,6 +114,8 @@
 #include "DolphinQt/NetPlay/NetPlayBrowser.h"
 #include "DolphinQt/NetPlay/NetPlayDialog.h"
 #include "DolphinQt/NetPlay/NetPlaySetupDialog.h"
+#include "DolphinQt/UpdaterDialogs/InstallUpdateDialog.h"
+#include "DolphinQt/UpdaterDialogs/UpdateDialog.h"
 #include "DolphinQt/QtUtils/DolphinFileDialog.h"
 #include "DolphinQt/QtUtils/FileOpenEventFilter.h"
 #include "DolphinQt/QtUtils/ModalMessageBox.h"
@@ -124,6 +134,7 @@
 #include "DolphinQt/TAS/GCTASInputWindow.h"
 #include "DolphinQt/TAS/WiiTASInputWindow.h"
 #include "DolphinQt/ToolBar.h"
+#include "DolphinQt/Updater.h"
 #include "DolphinQt/WiiUpdate.h"
 
 #include "UICommon/DiscordPresence.h"
@@ -260,6 +271,10 @@ MainWindow::MainWindow(Core::System& system, std::unique_ptr<BootParameters> boo
   InitCoreCallbacks();
 
   NetPlayInit();
+
+#ifdef SHOW_UPDATER
+  CheckForUpdatesAuto();
+#endif  // SHOW_UPDATER
 
 #ifdef USE_RETRO_ACHIEVEMENTS
   AchievementManager::GetInstance().Init(reinterpret_cast<void*>(winId()));
@@ -600,6 +615,9 @@ void MainWindow::ConnectMenuBar()
           &GameList::OnGameListVisibilityChanged);
 
   connect(m_menu_bar, &MenuBar::ShowAboutDialog, this, &MainWindow::ShowAboutDialog);
+#ifdef SHOW_UPDATER
+  connect(m_menu_bar, &MenuBar::ShowUpdateDialog, this, &MainWindow::ShowUpdateDialog);
+#endif  // SHOW_UPDATER
 
   connect(m_game_list, &GameList::SelectionChanged, m_menu_bar, &MenuBar::SelectionChanged);
   connect(this, &MainWindow::ReadOnlyModeChanged, m_menu_bar, &MenuBar::ReadOnlyModeChanged);
@@ -615,6 +633,8 @@ void MainWindow::ConnectHotkeys()
   connect(m_hotkey_scheduler, &HotkeyScheduler::UnlockCursor, this, &MainWindow::UnlockCursor);
   connect(m_hotkey_scheduler, &HotkeyScheduler::TogglePauseHotkey, this, &MainWindow::TogglePause);
   connect(m_hotkey_scheduler, &HotkeyScheduler::ActivateChat, this, &MainWindow::OnActivateChat);
+  connect(m_hotkey_scheduler, &HotkeyScheduler::CollapseChat, this, &MainWindow::OnCollapseChat);
+  connect(m_hotkey_scheduler, &HotkeyScheduler::ExpandChat, this, &MainWindow::OnExpandChat);
   connect(m_hotkey_scheduler, &HotkeyScheduler::RequestGolfControl, this,
           &MainWindow::OnRequestGolfControl);
   connect(m_hotkey_scheduler, &HotkeyScheduler::RefreshGameListHotkey, this,
@@ -694,9 +714,13 @@ void MainWindow::ConnectToolBar()
   connect(m_tool_bar, &ToolBar::StopPressed, this, &MainWindow::RequestStop);
   connect(m_tool_bar, &ToolBar::FullScreenPressed, this, &MainWindow::FullScreen);
   connect(m_tool_bar, &ToolBar::ScreenShotPressed, this, &MainWindow::ScreenShot);
+  connect(m_tool_bar, &ToolBar::NetPlaySetupDialogPressed, this, &MainWindow::ShowNetPlaySetupDialog);
   connect(m_tool_bar, &ToolBar::SettingsPressed, this, &MainWindow::ShowSettingsWindow);
   connect(m_tool_bar, &ToolBar::ControllersPressed, this, &MainWindow::ShowControllersWindow);
   connect(m_tool_bar, &ToolBar::GraphicsPressed, this, &MainWindow::ShowGraphicsWindow);
+  #ifdef SHOW_UPDATER
+  connect(m_tool_bar, &ToolBar::InstallUpdateManuallyPressed, this, &MainWindow::ShowUpdateDialog);
+#endif  // SHOW_UPDATER
 
   connect(m_tool_bar, &ToolBar::StepPressed, m_code_widget, &CodeWidget::Step);
   connect(m_tool_bar, &ToolBar::StepOverPressed, m_code_widget, &CodeWidget::StepOver);
@@ -948,6 +972,14 @@ void MainWindow::OnStopComplete()
   {
     StartGame(std::move(m_pending_boot));
     m_pending_boot.reset();
+    return;
+  }
+
+  // Check if a forwarder channel requested booting a disc image
+  const std::string forwarder_boot_path = WiiForwarder::ConsumePendingForwarderBoot();
+  if (!forwarder_boot_path.empty())
+  {
+    StartGame(BootParameters::GenerateFromFile(forwarder_boot_path));
   }
 }
 
@@ -976,6 +1008,12 @@ bool MainWindow::RequestStop()
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
   confirm_on_stop = confirm_on_stop || AchievementManager::GetInstance().CheckForModifications();
 #endif  // RC_CLIENT_SUPPORTS_RAINTEGRATION
+
+  // Skip confirmation when a forwarder channel is launching a disc image —
+  // the user already chose to play the game from the Wii Menu.
+  if (WiiForwarder::HasPendingForwarderBoot())
+    confirm_on_stop = false;
+
   if (confirm_on_stop)
   {
     if (std::exchange(m_stop_confirm_showing, true))
@@ -1409,6 +1447,80 @@ void MainWindow::ShowAboutDialog()
   about.exec();
 }
 
+// P+ change: New updater; credit to RainbowTabitha and the Mario Party Netplay team for the base code!
+
+#ifdef SHOW_UPDATER
+void MainWindow::ShowUpdateDialog()
+{
+    Common::HttpRequest httpRequest;
+
+    // Make the GET request
+    auto response = httpRequest.Get("https://api.github.com/repos/sharath-5br2r-apps/Dolphin-Extra/releases/latest");
+
+    if (response)
+    {
+        // Access the underlying vector and convert it to QByteArray
+        QByteArray responseData(reinterpret_cast<const char*>(response->data()), response->size());
+
+        // Parse the JSON response
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData);
+        QJsonObject jsonObject = jsonDoc.object();
+      
+        QString currentVersion = QString::fromStdString(SCM_DESC_STR);
+        QString latestVersion = jsonObject.value(QStringLiteral("tag_name")).toString();
+
+        if (currentVersion != latestVersion)
+        {
+          // Create and show the UpdateDialog with the fetched data
+          bool forced = false; // Set this based on your logic
+          UserInterface::Dialog::UpdateDialog updater(this, jsonObject, forced);
+          updater.exec();
+        } else {
+          QMessageBox::information(this, tr("Info"), tr("You are already up to date."));
+        }
+    }
+    else
+    {
+        // Handle error
+        QMessageBox::critical(this, tr("Error"), tr("Failed to fetch update information."));
+    }
+}
+
+void MainWindow::CheckForUpdatesAuto()
+{
+    Common::HttpRequest httpRequest;
+
+    // Make the GET request
+    auto response = httpRequest.Get("https://api.github.com/repos/sharath-5br2r-apps/Dolphin-Extra/releases/latest");
+
+    if (response)
+    {
+        // Access the underlying vector and convert it to QByteArray
+        QByteArray responseData(reinterpret_cast<const char*>(response->data()), response->size());
+
+        // Parse the JSON response
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData);
+        QJsonObject jsonObject = jsonDoc.object();
+      
+        QString currentVersion = QString::fromStdString(SCM_DESC_STR);
+        QString latestVersion = jsonObject.value(QStringLiteral("tag_name")).toString();
+
+        if (currentVersion != latestVersion)
+        {
+          // Create and show the UpdateDialog with the fetched data
+          bool forced = false; // Set this based on your logic
+          UserInterface::Dialog::UpdateDialog updater(this, jsonObject, forced);
+          updater.exec();
+        }
+    }
+    else
+    {
+        // Handle error
+        QMessageBox::critical(this, tr("Error"), tr("Failed to fetch update information."));
+    }
+}
+#endif  // SHOW_UPDATER
+
 void MainWindow::ShowHotkeyDialog()
 {
   if (!m_hotkey_window)
@@ -1681,7 +1793,7 @@ bool MainWindow::NetPlayJoin()
   if (server)
   {
     server->SetHostInputAuthority(host_input_authority);
-    server->AdjustPadBufferSize(Config::Get(Config::NETPLAY_BUFFER_SIZE));
+    server->AdjustMinimumPadBufferSize(Config::Get(Config::NETPLAY_MINIMUM_BUFFER_SIZE));
   }
 
   // Create Client
@@ -2021,6 +2133,18 @@ void MainWindow::OnActivateChat()
 {
   if (g_netplay_chat_ui)
     g_netplay_chat_ui->Activate();
+}
+
+void MainWindow::OnCollapseChat()
+{
+  if (g_netplay_chat_ui)
+    g_netplay_chat_ui->Collapse();
+}
+
+void MainWindow::OnExpandChat()
+{
+  if (g_netplay_chat_ui)
+    g_netplay_chat_ui->Expand();
 }
 
 void MainWindow::OnRequestGolfControl()
