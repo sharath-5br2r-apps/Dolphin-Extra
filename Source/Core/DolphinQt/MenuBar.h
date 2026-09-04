@@ -95,6 +95,9 @@ signals:
   void BootGameCubeIPL(DiscIO::Region region);
   void ShowFIFOPlayer();
   void ShowAboutDialog();
+#ifdef SHOW_UPDATER
+  void ShowUpdateDialog();
+#endif  // SHOW_UPDATER
   void ShowCheatsManager();
   void ShowResourcePackManager();
   void ShowSkylanderPortal();
@@ -164,6 +167,7 @@ private:
   void UpdateStateSlotMenu();
 
   void InstallWAD();
+  void InstallDiscImageToWiiMenu();
   void ImportWiiSave();
   void ImportWiiSaves();
   void ExportWiiSaves();
@@ -218,6 +222,7 @@ private:
 
   // Tools
   QAction* m_wad_install_action;
+  QAction* m_disc_to_wii_menu_action;
   QMenu* m_perform_online_update_menu;
   QAction* m_perform_online_update_for_current_region;
   QAction* m_achievements_action;

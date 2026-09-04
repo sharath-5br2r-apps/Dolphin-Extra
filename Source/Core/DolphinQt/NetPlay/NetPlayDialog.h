@@ -9,6 +9,7 @@
 
 #include <QDialog>
 #include <QMenuBar>
+#include <QCheckBox>
 
 #include "Common/Lazy.h"
 #include "Core/NetPlayClient.h"
@@ -63,7 +64,8 @@ public:
   void OnMsgPowerButton() override;
   void OnPlayerConnect(const std::string& player) override;
   void OnPlayerDisconnect(const std::string& player) override;
-  void OnPadBufferChanged(u32 buffer) override;
+  void OnMinimumPadBufferChanged(u32 buffer) override;
+  void OnPlayerPadBufferChanged(u32 buffer) override;
   void OnHostInputAuthorityChanged(bool enabled) override;
   void OnDesync(u32 frame, const std::string& player) override;
   void OnConnectionLost() override;
@@ -78,6 +80,8 @@ public:
   void OnIndexRefreshFailed(const std::string error) override;
 
   bool IsRecording() override;
+  bool IsSpectator() override;
+  void IsSpectatorEnabled(bool enabled);
   std::shared_ptr<const UICommon::GameFile>
   FindGameFile(const NetPlay::SyncIdentifier& sync_identifier,
                NetPlay::SyncIdentifierComparison* found = nullptr) override;
@@ -142,8 +146,10 @@ private:
   QMenu* m_other_menu;
   QPushButton* m_game_button;
   QPushButton* m_start_button;
-  QLabel* m_buffer_label;
-  QSpinBox* m_buffer_size_box;
+  QLabel* m_minimum_buffer_label;
+  QSpinBox* m_minimum_buffer_size_box;
+  QLabel* m_player_buffer_label;
+  QSpinBox* m_player_buffer_size_box;
 
   QActionGroup* m_savedata_style_group;
   QAction* m_savedata_none_action;
@@ -159,6 +165,8 @@ private:
   QAction* m_golf_mode_overlay_action;
   QAction* m_fixed_delay_action;
   QAction* m_hide_remote_gbas_action;
+  QCheckBox* m_brawlmusic_off;
+  QCheckBox* m_spectator_mode;
   QPushButton* m_quit_button;
   QSplitter* m_splitter;
   QActionGroup* m_network_mode_group;
@@ -175,7 +183,8 @@ private:
   bool m_use_traversal = false;
   bool m_is_copy_button_retry = false;
   bool m_got_stop_request = true;
-  int m_buffer_size = 0;
+  int m_minimum_buffer_size = 0;
+  int m_player_buffer_size = 0;
   int m_player_count = 0;
   int m_old_player_count = 0;
   bool m_host_input_authority = false;
