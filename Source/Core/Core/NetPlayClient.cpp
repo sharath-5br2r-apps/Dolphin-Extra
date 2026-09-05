@@ -41,6 +41,7 @@
 #include "Core/Config/NetplaySettings.h"
 #include "Core/Config/SessionSettings.h"
 #include "Core/ConfigManager.h"
+#include "Core/Core.h"
 #include "Core/GeckoCode.h"
 #include "Core/HW/EXI/EXI.h"
 #include "Core/HW/EXI/EXI_DeviceIPL.h"
@@ -77,7 +78,7 @@ namespace NetPlay
 using namespace WiimoteCommon;
 
 static std::mutex crit_netplay_client;
-static NetPlayClient* netplay_client = nullptr;
+NetPlayClient* netplay_client = nullptr;
 static bool s_si_poll_batching = false;
 
 // called from ---GUI--- thread
@@ -304,6 +305,7 @@ bool NetPlayClient::Connect()
     player.name = m_player_name;
     player.pid = m_pid;
     player.revision = Common::GetNetplayDolphinVer();
+    player.buffer = 0 /* will be raised once we get the packet */;
 
     // add self to player list
     m_players[m_pid] = player;
@@ -315,6 +317,36 @@ bool NetPlayClient::Connect()
 
     return true;
   }
+}
+
+// called from ---GUI--- and ---NETPLAY--- thread
+void NetPlayClient::AdjustPlayerPadBufferSize(u32 buffer)
+{
+  std::lock_guard<std::recursive_mutex> lkp(m_crit.players);
+
+  m_local_player->buffer = buffer;
+  if (m_local_player->buffer < m_minimum_buffer_size)
+    m_local_player->buffer = m_minimum_buffer_size;
+
+
+	 // not needed on clients with host input authority
+  if (!m_host_input_authority)
+  {
+    // tell clients to change buffer size
+    sf::Packet spac;
+    spac << MessageID::PadBufferPlayer;
+    spac << m_local_player->buffer;
+
+    SendAsync(std::move(spac));
+  }
+  
+  m_dialog->OnPlayerPadBufferChanged(m_local_player->buffer);
+}
+
+void NetPlayClient::AdjustMinimumPadBufferSize(const unsigned int size)
+{
+  m_minimum_buffer_size = size;
+  m_dialog->OnMinimumPadBufferChanged(size);
 }
 
 static void ReceiveSyncIdentifier(sf::Packet& spac, SyncIdentifier& sync_identifier)
@@ -395,8 +427,12 @@ void NetPlayClient::OnData(sf::Packet& packet)
     OnWiimoteData(packet);
     break;
 
-  case MessageID::PadBuffer:
-    OnPadBuffer(packet);
+  case MessageID::PadBufferMinimum:
+    OnPadBufferMinimum(packet);
+    break;
+    
+  case MessageID::PadBufferPlayer:
+    OnPadBufferPlayer(packet);
     break;
 
   case MessageID::HostInputAuthority:
@@ -749,13 +785,28 @@ void NetPlayClient::OnWiimoteData(sf::Packet& packet)
   }
 }
 
-void NetPlayClient::OnPadBuffer(sf::Packet& packet)
+void NetPlayClient::OnPadBufferMinimum(sf::Packet& packet)
 {
   u32 size = 0;
   packet >> size;
+  
+  m_minimum_buffer_size = size;
+    m_dialog->OnMinimumPadBufferChanged(size);
 
-  m_target_buffer_size = size;
-  m_dialog->OnPadBufferChanged(size);
+    if (m_local_player->buffer < m_minimum_buffer_size)
+      AdjustPlayerPadBufferSize(m_minimum_buffer_size);
+}
+
+
+void NetPlayClient::OnPadBufferPlayer(sf::Packet& packet)
+{
+    PlayerId pid;
+    packet >> pid;
+
+    {
+      std::lock_guard<std::recursive_mutex> lkp(m_crit.players);
+      packet >> m_players[pid].buffer;
+    }
 }
 
 void NetPlayClient::OnHostInputAuthority(sf::Packet& packet)
@@ -860,6 +911,7 @@ void NetPlayClient::OnStartGame(sf::Packet& packet)
     packet >> m_net_settings.oc_factor;
     packet >> m_net_settings.vi_oc_enable;
     packet >> m_net_settings.vi_oc_factor;
+    packet >> m_net_settings.spectator_mode;
 
     for (auto slot : ExpansionInterface::SLOTS)
       packet >> m_net_settings.exi_device[slot];
@@ -1593,7 +1645,7 @@ void NetPlayClient::ThreadFunc()
     if (qos_session.Successful())
     {
       m_dialog->AppendChat(
-          Common::GetStringT("Quality of Service (QoS) was successfully enabled."));
+          Common::GetStringT("Quality of Service (QoS) was successfully enabled.\nBuffer should be set to your ping divided by 16, at a minimum of 3."));
     }
     else
     {
@@ -2032,7 +2084,7 @@ bool NetPlayClient::GetNetPads(const int pad_nb, const bool batching, GCPadStatu
       // we toggle the emulation speed too quickly, so to prevent this
       // we wait until the buffer has been over for at least 1 second.
 
-      const bool buffer_over_target = m_pad_buffer[pad_nb].Size() > m_target_buffer_size + 1;
+      const bool buffer_over_target = m_pad_buffer[pad_nb].Size() > m_minimum_buffer_size + 1;
       if (!buffer_over_target)
         m_buffer_under_target_last = std::chrono::steady_clock::now();
 
@@ -2162,7 +2214,7 @@ bool NetPlayClient::PollLocalPad(const int local_pad, sf::Packet& packet)
   {
     // adjust the buffer either up or down
     // inserting multiple padstates or dropping states
-    while (m_pad_buffer[ingame_pad].Size() <= m_target_buffer_size)
+    while (m_pad_buffer[ingame_pad].Size() <= BufferSizeForPort(ingame_pad))
     {
       // add to buffer
       m_pad_buffer[ingame_pad].Push(pad_status);
@@ -2185,7 +2237,7 @@ bool NetPlayClient::AddLocalWiimoteToBuffer(const int local_wiimote,
 
   // adjust the buffer either up or down
   // inserting multiple padstates or dropping states
-  while (m_wiimote_buffer[ingame_pad].Size() <= m_target_buffer_size)
+  while (m_wiimote_buffer[ingame_pad].Size() <= m_minimum_buffer_size)
   {
     // add to buffer
     m_wiimote_buffer[ingame_pad].Push(state);
@@ -2531,6 +2583,8 @@ void NetPlayClient::ComputeGameDigest(const SyncIdentifier& sync_identifier)
     file = File::GetUserPath(F_WIISDCARDIMAGE_IDX);
   else if (auto game = m_dialog->FindGameFile(sync_identifier))
     file = game->GetFilePath();
+  else if (sync_identifier == GetBrawlFileIdentifier())
+    file = File::GetSysDirectory() + "Wii" + DIR_SEP + "title" + DIR_SEP + "00010000" + DIR_SEP + "52534245" + DIR_SEP + "data" + DIR_SEP + BRAWL_SAVE_FILE;
 
   if (file.empty() || !File::Exists(file))
   {
@@ -2575,12 +2629,6 @@ const PadMappingArray& NetPlayClient::GetWiimoteMapping() const
   return m_net_settings.wiimote_map;
 }
 
-void NetPlayClient::AdjustPadBufferSize(const unsigned int size)
-{
-  m_target_buffer_size = size;
-  m_dialog->OnPadBufferChanged(size);
-}
-
 void NetPlayClient::SetWiiSyncData(std::unique_ptr<IOS::HLE::FS::FileSystem> fs,
                                    std::vector<u64> titles, std::string redirect_folder)
 {
@@ -2592,6 +2640,11 @@ void NetPlayClient::SetWiiSyncData(std::unique_ptr<IOS::HLE::FS::FileSystem> fs,
 SyncIdentifier NetPlayClient::GetSDCardIdentifier()
 {
   return SyncIdentifier{{}, "sd", {}, {}, {}, {}};
+}
+
+SyncIdentifier NetPlayClient::GetBrawlFileIdentifier()
+{
+  return SyncIdentifier{{}, "Save", {}, {}, {}, {}};
 }
 
 std::string GetPlayerMappingString(PlayerId pid, const PadMappingArray& pad_map,

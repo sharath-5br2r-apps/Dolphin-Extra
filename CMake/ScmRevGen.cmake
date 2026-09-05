@@ -33,8 +33,8 @@ endif()
 string(TIMESTAMP DOLPHIN_WC_BUILD_DATE "%Y-%m-%d" UTC)
 
 # version number
-set(DOLPHIN_VERSION_MAJOR "2606")
-set(DOLPHIN_VERSION_MINOR "0")
+set(DOLPHIN_VERSION_MAJOR "v3.2.0")
+set(DOLPHIN_VERSION_MINOR "2606a")
 set(DOLPHIN_VERSION_PATCH ${DOLPHIN_WC_REVISION})
 
 # If Dolphin is not built from a Git repository, default the version info to
@@ -71,5 +71,5 @@ if(APPLE)
 endif()
 
 if(LINUX)
-  configure_source_file("Flatpak/org.DolphinEmu.dolphin-emu.metainfo.xml")
+  configure_source_file("Distribution/flatpak/org.DolphinEmu.dolphin-emu.metainfo.xml")
 endif()
