@@ -41,6 +41,7 @@
 #endif
 #include "DolphinQt/Resources.h"
 #include "DolphinQt/Settings.h"
+#include "DolphinQt/Settings/PathPane.h"
 #include "DolphinQt/Translation.h"
 #include "DolphinQt/Updater.h"
 
@@ -280,6 +281,34 @@ int main(int argc, char* argv[])
 
 #if defined(USE_ANALYTICS) && USE_ANALYTICS
     if (!Config::Get(Config::MAIN_ANALYTICS_PERMISSION_ASKED))
+      {
+        QMessageBox firstboot_prompt(&win);
+        firstboot_prompt.setIcon(QMessageBox::Information);
+        firstboot_prompt.setWindowTitle(QObject::tr("First Boot Prompt"));
+        firstboot_prompt.setText(
+            QObject::tr("New installation detected; read below for setup tips!"));
+        firstboot_prompt.setInformativeText(QObject::tr(
+            "If you are on modern hardware, we recommend setting Ubershaders "
+            "to either Hybrid or Exclusive mode in Graphics > General for a "
+            "stutter-free experience while playing. \n\n"
+            "Select your Brawl ISO using the button below to allow the mod to load properly. \n"
+            "You can also set this path later in Config > Paths.\n\n"
+            "Thank you for playing!"));
+        QAbstractButton* pButtonYes = firstboot_prompt.addButton(QObject::tr("Select ISO"), QMessageBox::YesRole);
+        firstboot_prompt.addButton(QObject::tr("Skip"), QMessageBox::NoRole);
+
+        firstboot_prompt.exec();
+
+        if (firstboot_prompt.clickedButton() == pButtonYes)
+        {
+          PathPane path_pane;
+          path_pane.BrowseDefaultGame();
+        }
+
+    }
+#endif
+#if defined(USE_ANALYTICS) && USE_ANALYTICS
+      if (!Config::Get(Config::MAIN_ANALYTICS_PERMISSION_ASKED))
     {
       // To ensure that the analytics prompt appears aligned with the center of the main window,
       // the dialog is only shown after the application is ready, as only then it is guaranteed that

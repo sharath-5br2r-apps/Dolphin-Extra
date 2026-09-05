@@ -84,6 +84,7 @@ void GCPadWiiUConfigDialog::UpdateAdapterStatus()
 
   m_rumble->setEnabled(detected);
   m_simulate_bongos->setEnabled(detected);
+  m_poll_rate_label->setHidden(!detected);
 }
 
 void GCPadWiiUConfigDialog::LoadSettings()

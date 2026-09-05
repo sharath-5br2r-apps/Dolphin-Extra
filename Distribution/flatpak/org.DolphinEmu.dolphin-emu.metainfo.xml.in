@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+	<id>org.DolphinEmu.dolphin-emu</id>
+	<name>Dolphin Emulator</name>
+	<summary>GameCube / Wii / Triforce Emulator</summary>
+	<metadata_license>CC-BY-SA-3.0</metadata_license>
+	<project_license>GPL-2.0+</project_license>
+	<supports>
+		<control>pointing</control>
+		<control>keyboard</control>
+		<control>gamepad</control>
+	</supports>
+	<description>
+		<p>
+      A GameCube and Wii console emulator.
+    </p>
+	</description>
+	<provides>
+		<binary>dolphin-emu</binary>
+		<id>org.DolphinEmu.dolphin-emu.desktop</id>
+	</provides>
+	<launchable type="desktop-id">org.DolphinEmu.dolphin-emu.desktop</launchable>
+</component>

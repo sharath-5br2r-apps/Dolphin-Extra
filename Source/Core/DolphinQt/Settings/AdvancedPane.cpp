@@ -124,7 +124,7 @@ void AdvancedPane::CreateLayout()
          "<br><br>This will generally make frame pacing worse."
          "<br>This setting can work either with or without Immediately Present XFB."
          "<br>An Audio Buffer Size of at least 80 ms is recommended to ensure full effect."
-         "<br><br><dolphin_emphasis>If unsure, leave this unchecked.</dolphin_emphasis>"));
+         "<br><br><dolphin_emphasis>If unsure, leave this checked.</dolphin_emphasis>"));
   timing_group_layout->addWidget(rush_frame_presentation);
 
   auto* const smooth_early_presentation =
