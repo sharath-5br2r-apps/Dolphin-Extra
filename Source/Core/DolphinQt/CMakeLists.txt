@@ -1,5 +1,5 @@
 if (MSVC)
-  if(_M_ARM_64)
+  if(_M_ARM_64 OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|ARM64|aarch64")
     list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/Externals/Qt/Qt6.8.3/ARM64")
   else()
     list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/Externals/Qt/Qt6.8.3/x64")
@@ -588,14 +588,18 @@ if (WIN32)
 endif()
 
 # Handle localization
-find_package(Gettext)
+if(NOT DISABLE_NLS)
+  find_package(Gettext)
 
-if(WIN32 AND NOT Gettext_FOUND)
-  message(STATUS "Using Gettext from Externals")
-  set(GETTEXT_MSGFMT_EXECUTABLE "${CMAKE_SOURCE_DIR}/Externals/gettext/msgfmt.exe")
+  if(WIN32 AND NOT Gettext_FOUND)
+    message(STATUS "Using Gettext from Externals")
+    set(GETTEXT_MSGFMT_EXECUTABLE "${CMAKE_SOURCE_DIR}/Externals/gettext/msgfmt.exe")
+  endif()
+else()
+  message(STATUS "NLS disabled, skipping localization")
 endif()
 
-if(GETTEXT_MSGFMT_EXECUTABLE)
+if(NOT DISABLE_NLS AND GETTEXT_MSGFMT_EXECUTABLE)
   set(pot_file "${CMAKE_SOURCE_DIR}/Languages/po/dolphin-emu.pot")
   file(GLOB LINGUAS ${CMAKE_SOURCE_DIR}/Languages/po/*.po)
 

@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "VideoCommon/NetPlayChatUI.h"
+#include "Core/Config/GraphicsSettings.h"
 
 #include <imgui.h>
 
 constexpr float DEFAULT_WINDOW_WIDTH = 220.0f;
-constexpr float DEFAULT_WINDOW_HEIGHT = 400.0f;
+constexpr float DEFAULT_WINDOW_HEIGHT = 220.0f;
 
 constexpr size_t MAX_BACKLOG_SIZE = 100;
 
@@ -23,12 +24,12 @@ void NetPlayChatUI::Display()
 {
   const float scale = ImGui::GetIO().DisplayFramebufferScale.x;
 
-  ImGui::SetNextWindowPos(ImVec2(10.0f * scale, 10.0f * scale), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowPos(ImVec2(10.0f * scale, 40.0f * scale), ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowSizeConstraints(
       ImVec2(DEFAULT_WINDOW_WIDTH * scale, DEFAULT_WINDOW_HEIGHT * scale),
       ImGui::GetIO().DisplaySize);
 
-  if (!ImGui::Begin("Chat", nullptr, ImGuiWindowFlags_None))
+  if (!ImGui::Begin("Chat (hide/show with <-/->)", nullptr, ImGuiWindowFlags_None))
   {
     ImGui::End();
     return;
@@ -66,6 +67,16 @@ void NetPlayChatUI::Display()
   {
     ImGui::SetKeyboardFocusHere(-1);
     m_activate = false;
+  }
+
+  if (m_collapse)
+  {
+    m_collapse = false;
+  }
+
+  if (m_expand)
+  {
+    m_expand = false;
   }
 
   ImGui::PopItemWidth();
@@ -109,4 +120,16 @@ void NetPlayChatUI::Activate()
     ImGui::SetWindowFocus(nullptr);
   else
     m_activate = true;
+}
+
+void NetPlayChatUI::Collapse()
+{
+  Config::SetCurrent(Config::GFX_SHOW_NETPLAY_MESSAGES, false);
+  m_collapse = true;
+}
+
+void NetPlayChatUI::Expand()
+{
+  Config::SetCurrent(Config::GFX_SHOW_NETPLAY_MESSAGES, true);
+  m_expand = true;
 }

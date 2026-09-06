@@ -22,7 +22,9 @@ WidescreenManager::WidescreenManager()
   const bool is_valid_suggested_aspect_mode =
       g_ActiveConfig.suggested_aspect_mode == AspectMode::Auto ||
       g_ActiveConfig.suggested_aspect_mode == AspectMode::ForceStandard ||
-      g_ActiveConfig.suggested_aspect_mode == AspectMode::ForceWide;
+      g_ActiveConfig.suggested_aspect_mode == AspectMode::ForceWide ||
+      g_ActiveConfig.suggested_aspect_mode == AspectMode::ForcePM ||
+      g_ActiveConfig.suggested_aspect_mode == AspectMode::ForcePMWide;
   if (!is_valid_suggested_aspect_mode)
   {
     WARN_LOG_FMT(VIDEO,

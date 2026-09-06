@@ -83,6 +83,17 @@ void PathPane::BrowseLoad()
   }
 }
 
+void PathPane::BrowseLauncher()
+{
+  QString dir = QDir::toNativeSeparators(DolphinFileDialog::getExistingDirectory(
+      this, tr("Select Lanucher Path"), QString::fromStdString(Config::Get(Config::MAIN_LAUNCHER_PATH))));
+  if (!dir.isEmpty())
+  {
+    m_launcher_edit->setText(dir);
+    Config::SetBase(Config::MAIN_LAUNCHER_PATH, dir.toStdString());
+  }
+}
+
 void PathPane::BrowseResourcePack()
 {
   QString dir = QDir::toNativeSeparators(DolphinFileDialog::getExistingDirectory(
@@ -173,40 +184,47 @@ QGridLayout* PathPane::MakePathsLayout()
   layout->addWidget(m_game_edit, 0, 1);
   layout->addWidget(game_open, 0, 2);
 
+  m_launcher_edit = new ConfigUserPath(D_LAUNCHERS_IDX, Config::MAIN_LAUNCHER_PATH);
+  QPushButton* launcher_open = new NonDefaultQPushButton(QStringLiteral("..."));
+  connect(launcher_open, &QPushButton::clicked, this, &PathPane::BrowseLauncher);
+  layout->addWidget(new QLabel(tr("Launcher Path:")), 1, 0);
+  layout->addWidget(m_launcher_edit, 1, 1);
+  layout->addWidget(launcher_open, 1, 2);
+  
   m_nand_edit = new ConfigUserPath(D_WIIROOT_IDX, Config::MAIN_FS_PATH);
   QPushButton* nand_open = new NonDefaultQPushButton(QStringLiteral("..."));
   connect(nand_open, &QPushButton::clicked, this, &PathPane::BrowseWiiNAND);
-  layout->addWidget(new QLabel(tr("Wii NAND Root:")), 1, 0);
-  layout->addWidget(m_nand_edit, 1, 1);
-  layout->addWidget(nand_open, 1, 2);
+  layout->addWidget(new QLabel(tr("Wii NAND Root:")), 2, 0);
+  layout->addWidget(m_nand_edit, 2, 1);
+  layout->addWidget(nand_open, 2, 2);
 
   m_dump_edit = new ConfigUserPath(D_DUMP_IDX, Config::MAIN_DUMP_PATH);
   QPushButton* dump_open = new NonDefaultQPushButton(QStringLiteral("..."));
   connect(dump_open, &QPushButton::clicked, this, &PathPane::BrowseDump);
-  layout->addWidget(new QLabel(tr("Dump Path:")), 2, 0);
-  layout->addWidget(m_dump_edit, 2, 1);
-  layout->addWidget(dump_open, 2, 2);
+  layout->addWidget(new QLabel(tr("Dump Path:")), 3, 0);
+  layout->addWidget(m_dump_edit, 3, 1);
+  layout->addWidget(dump_open, 3, 2);
 
   m_load_edit = new ConfigUserPath(D_LOAD_IDX, Config::MAIN_LOAD_PATH);
   QPushButton* load_open = new NonDefaultQPushButton(QStringLiteral("..."));
   connect(load_open, &QPushButton::clicked, this, &PathPane::BrowseLoad);
-  layout->addWidget(new QLabel(tr("Load Path:")), 3, 0);
-  layout->addWidget(m_load_edit, 3, 1);
-  layout->addWidget(load_open, 3, 2);
+  layout->addWidget(new QLabel(tr("Load Path:")), 4, 0);
+  layout->addWidget(m_load_edit, 4, 1);
+  layout->addWidget(load_open, 4, 2);
 
   m_resource_pack_edit = new ConfigUserPath(D_RESOURCEPACK_IDX, Config::MAIN_RESOURCEPACK_PATH);
   QPushButton* resource_pack_open = new NonDefaultQPushButton(QStringLiteral("..."));
   connect(resource_pack_open, &QPushButton::clicked, this, &PathPane::BrowseResourcePack);
-  layout->addWidget(new QLabel(tr("Resource Pack Path:")), 4, 0);
-  layout->addWidget(m_resource_pack_edit, 4, 1);
-  layout->addWidget(resource_pack_open, 4, 2);
+  layout->addWidget(new QLabel(tr("Resource Pack Path:")), 5, 0);
+  layout->addWidget(m_resource_pack_edit, 5, 1);
+  layout->addWidget(resource_pack_open, 5, 2);
 
   m_wfs_edit = new ConfigUserPath(D_WFSROOT_IDX, Config::MAIN_WFS_PATH);
   QPushButton* wfs_open = new NonDefaultQPushButton(QStringLiteral("..."));
   connect(wfs_open, &QPushButton::clicked, this, &PathPane::BrowseWFS);
-  layout->addWidget(new QLabel(tr("WFS Path:")), 5, 0);
-  layout->addWidget(m_wfs_edit, 5, 1);
-  layout->addWidget(wfs_open, 5, 2);
+  layout->addWidget(new QLabel(tr("WFS Path:")), 6, 0);
+  layout->addWidget(m_wfs_edit, 6, 1);
+  layout->addWidget(wfs_open, 6, 2);
 
   return layout;
 }

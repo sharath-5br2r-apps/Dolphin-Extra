@@ -50,23 +50,24 @@ const Info<bool> MAIN_LARGE_ENTRY_POINTS_MAP{{System::Main, "Core", "LargeEntryP
 const Info<bool> MAIN_ACCURATE_CPU_CACHE{{System::Main, "Core", "AccurateCPUCache"}, false};
 const Info<bool> MAIN_DSP_HLE{{System::Main, "Core", "DSPHLE"}, true};
 const Info<int> MAIN_MAX_FALLBACK{{System::Main, "Core", "MaxFallback"}, 100};
-const Info<int> MAIN_TIMING_VARIANCE{{System::Main, "Core", "TimingVariance"}, 40};
+const Info<int> MAIN_TIMING_VARIANCE{{System::Main, "Core", "TimingVariance"}, 8};
 const Info<bool> MAIN_CORRECT_TIME_DRIFT{{System::Main, "Core", "CorrectTimeDrift"}, false};
 const Info<bool> MAIN_RUSH_FRAME_PRESENTATION{{System::Main, "Core", "RushFramePresentation"},
-                                              false};
+                                              true};
 const Info<bool> MAIN_SMOOTH_EARLY_PRESENTATION{{System::Main, "Core", "SmoothEarlyPresentation"},
                                                 false};
 #if defined(ANDROID)
 // Currently enabled by default on Android because the performance boost is really needed.
 constexpr bool DEFAULT_CPU_THREAD = true;
 #else
+// Turned back off after testing showed dual core increases input lag on some machines
 constexpr bool DEFAULT_CPU_THREAD = false;
 #endif
 const Info<bool> MAIN_CPU_THREAD{{System::Main, "Core", "CPUThread"}, DEFAULT_CPU_THREAD};
 const Info<bool> MAIN_LOAD_GAME_INTO_MEMORY{{System::Main, "Core", "LoadGameIntoMemory"}, false};
 const Info<bool> MAIN_SYNC_ON_SKIP_IDLE{{System::Main, "Core", "SyncOnSkipIdle"}, true};
 const Info<std::string> MAIN_DEFAULT_ISO{{System::Main, "Core", "DefaultISO"}, ""};
-const Info<bool> MAIN_ENABLE_CHEATS{{System::Main, "Core", "EnableCheats"}, false};
+const Info<bool> MAIN_ENABLE_CHEATS{{System::Main, "Core", "EnableCheats"}, true};
 const Info<int> MAIN_GC_LANGUAGE{{System::Main, "Core", "SelectedLanguage"}, 0};
 const Info<bool> MAIN_OVERRIDE_REGION_SETTINGS{{System::Main, "Core", "OverrideRegionSettings"},
                                                false};
@@ -131,7 +132,7 @@ const Info<std::string>& GetInfoForGCIPathOverride(ExpansionInterface::Slot slot
 const Info<int> MAIN_MEMORY_CARD_SIZE{{System::Main, "Core", "MemoryCardSize"}, -1};
 
 const Info<ExpansionInterface::EXIDeviceType> MAIN_SLOT_A{
-    {System::Main, "Core", "SlotA"}, ExpansionInterface::EXIDeviceType::MemoryCardFolder};
+    {System::Main, "Core", "SlotA"}, ExpansionInterface::EXIDeviceType::None};
 const Info<ExpansionInterface::EXIDeviceType> MAIN_SLOT_B{{System::Main, "Core", "SlotB"},
                                                           ExpansionInterface::EXIDeviceType::None};
 const Info<ExpansionInterface::EXIDeviceType> MAIN_SERIAL_PORT_1{
@@ -169,13 +170,13 @@ const Info<SerialInterface::SIDevices>& GetInfoForSIDevice(int channel)
 {
   static const std::array<const Info<SerialInterface::SIDevices>, 4> infos{
       Info<SerialInterface::SIDevices>{{System::Main, "Core", "SIDevice0"},
-                                       SerialInterface::SIDEVICE_GC_CONTROLLER},
+                                       SerialInterface::SIDEVICE_WIIU_ADAPTER},
       Info<SerialInterface::SIDevices>{{System::Main, "Core", "SIDevice1"},
-                                       SerialInterface::SIDEVICE_NONE},
+                                       SerialInterface::SIDEVICE_WIIU_ADAPTER},
       Info<SerialInterface::SIDevices>{{System::Main, "Core", "SIDevice2"},
-                                       SerialInterface::SIDEVICE_NONE},
+                                       SerialInterface::SIDEVICE_WIIU_ADAPTER},
       Info<SerialInterface::SIDevices>{{System::Main, "Core", "SIDevice3"},
-                                       SerialInterface::SIDEVICE_NONE},
+                                       SerialInterface::SIDEVICE_WIIU_ADAPTER},
   };
   return infos[channel];
 }
@@ -278,7 +279,7 @@ const Info<bool> MAIN_CUSTOM_RTC_ENABLE{{System::Main, "Core", "EnableCustomRTC"
 const Info<u32> MAIN_CUSTOM_RTC_VALUE{{System::Main, "Core", "CustomRTCValue"},
                                       (30 * 365 + 7) * 24 * 60 * 60};
 const Info<DiscIO::Region> MAIN_FALLBACK_REGION{{System::Main, "Core", "FallbackRegion"},
-                                                GetDefaultRegion()};
+                                                DiscIO::Region::NTSC_U};
 const Info<bool> MAIN_AUTO_DISC_CHANGE{{System::Main, "Core", "AutoDiscChange"}, false};
 const Info<bool> MAIN_ALLOW_SD_WRITES{{System::Main, "Core", "WiiSDCardAllowWrites"}, true};
 const Info<bool> MAIN_ENABLE_SAVESTATES{{System::Main, "Core", "EnableSaveStates"}, false};
@@ -314,7 +315,7 @@ const Info<bool> MAIN_DUMP_AUDIO_SILENT{{System::Main, "DSP", "DumpAudioSilent"}
 const Info<bool> MAIN_DUMP_UCODE{{System::Main, "DSP", "DumpUCode"}, false};
 const Info<std::string> MAIN_AUDIO_BACKEND{{System::Main, "DSP", "Backend"},
                                            AudioCommon::GetDefaultSoundBackend()};
-const Info<int> MAIN_AUDIO_VOLUME{{System::Main, "DSP", "Volume"}, 100};
+const Info<int> MAIN_AUDIO_VOLUME{{System::Main, "DSP", "Volume"}, 10};
 const Info<bool> MAIN_AUDIO_MUTED{{System::Main, "DSP", "Muted"}, false};
 const Info<bool> MAIN_AUDIO_MUTE_ON_DISABLED_SPEED_LIMIT{
     {System::Main, "DSP", "MuteOnDisabledSpeedLimit"}, false};
@@ -331,6 +332,7 @@ bool ShouldUseDPL2Decoder()
 
 const Info<std::string> MAIN_DUMP_PATH{{System::Main, "General", "DumpPath"}, ""};
 const Info<std::string> MAIN_LOAD_PATH{{System::Main, "General", "LoadPath"}, ""};
+const Info<std::string> MAIN_LAUNCHER_PATH{{System::Main, "General", "LauncherPath"}, ""};
 const Info<std::string> MAIN_RESOURCEPACK_PATH{{System::Main, "General", "ResourcePackPath"}, ""};
 const Info<std::string> MAIN_FS_PATH{{System::Main, "General", "NANDRootPath"}, ""};
 const Info<std::string> MAIN_WII_SD_CARD_IMAGE_PATH{{System::Main, "General", "WiiSDCardPath"}, ""};
@@ -353,33 +355,39 @@ static Info<std::string> MakeISOPathConfigInfo(size_t idx)
                                    ""};
 }
 
+// P+ change: Get/SetIsoPaths modified to include launcher path by default, preventing us from needing to ship Dolphin.ini
+
 std::vector<std::string> GetIsoPaths()
 {
-  size_t count = MathUtil::SaturatingCast<size_t>(Config::Get(Config::MAIN_ISO_PATH_COUNT));
   std::vector<std::string> paths;
-  paths.reserve(count);
+
+  // Always insert the launcher path
+  paths.emplace_back(File::GetUserPath(D_LAUNCHERS_IDX));
+
+  size_t count = MathUtil::SaturatingCast<size_t>(Config::Get(Config::MAIN_ISO_PATH_COUNT));
+  paths.reserve(count + 1);
+
   for (size_t i = 0; i < count; ++i)
   {
     std::string iso_path = Config::Get(MakeISOPathConfigInfo(i));
     if (!iso_path.empty())
       paths.emplace_back(std::move(iso_path));
   }
+
   return paths;
 }
 
 void SetIsoPaths(std::span<const std::string> paths)
 {
   size_t old_size = MathUtil::SaturatingCast<size_t>(Config::Get(Config::MAIN_ISO_PATH_COUNT));
-  size_t new_size = paths.size();
+  std::string launcher_path = File::GetUserPath(D_LAUNCHERS_IDX);
 
   size_t current_path_idx = 0;
+
   for (const std::string& p : paths)
   {
-    if (p.empty())
-    {
-      --new_size;
+    if (p.empty() || p == launcher_path)
       continue;
-    }
 
     Config::SetBase(MakeISOPathConfigInfo(current_path_idx), p);
     ++current_path_idx;
@@ -387,11 +395,10 @@ void SetIsoPaths(std::span<const std::string> paths)
 
   for (size_t i = current_path_idx; i < old_size; ++i)
   {
-    // TODO: This actually needs a Config::Erase().
     Config::SetBase(MakeISOPathConfigInfo(i), "");
   }
 
-  Config::SetBase(Config::MAIN_ISO_PATH_COUNT, MathUtil::SaturatingCast<int>(new_size));
+  Config::SetBase(Config::MAIN_ISO_PATH_COUNT, static_cast<int>(current_path_idx));
 }
 
 // Main.GBA
@@ -429,12 +436,13 @@ const Info<int> MAIN_NETWORK_TIMEOUT{{System::Main, "Network", "NetworkTimeout"}
 
 const Info<bool> MAIN_USE_HIGH_CONTRAST_TOOLTIPS{
     {System::Main, "Interface", "UseHighContrastTooltips"}, true};
-const Info<bool> MAIN_USE_PANIC_HANDLERS{{System::Main, "Interface", "UsePanicHandlers"}, true};
+const Info<bool> MAIN_USE_PANIC_HANDLERS{{System::Main, "Interface", "UsePanicHandlers"}, false};
 const Info<bool> MAIN_ABORT_ON_PANIC_ALERT{{System::Main, "Interface", "AbortOnPanicAlert"}, false};
 const Info<bool> MAIN_OSD_MESSAGES{{System::Main, "Interface", "OnScreenDisplayMessages"}, true};
+const Info<bool> MAIN_SHOW_ADAPTER_WARNING{{System::Main, "Interface", "ShowAdapterWarning"}, true};
 const Info<int> MAIN_OSD_FONT_SIZE{{System::Main, "Settings", "OSDFontSize"}, 13};
 const Info<bool> MAIN_SKIP_NKIT_WARNING{{System::Main, "Interface", "SkipNKitWarning"}, false};
-const Info<bool> MAIN_CONFIRM_ON_STOP{{System::Main, "Interface", "ConfirmStop"}, true};
+const Info<bool> MAIN_CONFIRM_ON_STOP{{System::Main, "Interface", "ConfirmStop"}, false};
 const Info<ShowCursor> MAIN_SHOW_CURSOR{{System::Main, "Interface", "CursorVisibility"},
                                         ShowCursor::OnMovement};
 const Info<bool> MAIN_LOCK_CURSOR{{System::Main, "Interface", "LockCursor"}, false};
@@ -491,8 +499,8 @@ const Info<bool> MAIN_GAMELIST_COLUMN_FILE_NAME{{System::Main, "GameList", "Colu
 const Info<bool> MAIN_GAMELIST_COLUMN_FILE_PATH{{System::Main, "GameList", "ColumnFilePath"},
                                                 false};
 const Info<bool> MAIN_GAMELIST_COLUMN_GAME_ID{{System::Main, "GameList", "ColumnID"}, false};
-const Info<bool> MAIN_GAMELIST_COLUMN_REGION{{System::Main, "GameList", "ColumnRegion"}, true};
-const Info<bool> MAIN_GAMELIST_COLUMN_FILE_SIZE{{System::Main, "GameList", "ColumnSize"}, true};
+const Info<bool> MAIN_GAMELIST_COLUMN_REGION{{System::Main, "GameList", "ColumnRegion"}, false};
+const Info<bool> MAIN_GAMELIST_COLUMN_FILE_SIZE{{System::Main, "GameList", "ColumnSize"}, false};
 const Info<bool> MAIN_GAMELIST_COLUMN_FILE_FORMAT{{System::Main, "GameList", "ColumnFileFormat"},
                                                   false};
 const Info<bool> MAIN_GAMELIST_COLUMN_BLOCK_SIZE{{System::Main, "GameList", "ColumnBlockSize"},
@@ -500,7 +508,7 @@ const Info<bool> MAIN_GAMELIST_COLUMN_BLOCK_SIZE{{System::Main, "GameList", "Col
 const Info<bool> MAIN_GAMELIST_COLUMN_COMPRESSION{{System::Main, "GameList", "ColumnCompression"},
                                                   false};
 const Info<bool> MAIN_GAMELIST_COLUMN_TIME_PLAYED{{System::Main, "GameList", "ColumnTimePlayed"},
-                                                  true};
+                                                  false};
 const Info<bool> MAIN_GAMELIST_COLUMN_TAGS{{System::Main, "GameList", "ColumnTags"}, false};
 
 // Main.FifoPlayer
