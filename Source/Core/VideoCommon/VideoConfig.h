@@ -25,6 +25,8 @@ enum class AspectMode : int
   ForceWide,      // ~16:9
   ForceStandard,  // ~4:3
   Stretch,
+  ForcePM,        // P+ regular
+  ForcePMWide,    // P+ widescreen
   Custom,         // Forced relative custom AR
   CustomStretch,  // Forced absolute custom AR
   Raw,            // Forced squared pixels

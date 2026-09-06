@@ -28,15 +28,11 @@ const std::string& GetEmulatorName()
 const std::string& GetScmRevStr()
 {
   static const std::string scm_rev_str = EMULATOR_NAME " "
-  // Note this macro can be empty if the master branch does not exist.
-#if 1 - SCM_COMMITS_AHEAD_MASTER - 1 != 0
-                                                       "[" SCM_BRANCH_STR "] "
-#endif
 
 #ifdef __INTEL_COMPILER
       BUILD_TYPE_STR SCM_DESC_STR "-ICC";
 #else
-      BUILD_TYPE_STR SCM_DESC_STR;
+      BUILD_TYPE_STR SCM_DESC_STR "";
 #endif
   return scm_rev_str;
 }
@@ -80,11 +76,11 @@ const std::string& GetScmUpdateTrackStr()
 const std::string& GetNetplayDolphinVer()
 {
 #ifdef _WIN32
-  static const std::string netplay_dolphin_ver = SCM_DESC_STR " Win";
+  static const std::string netplay_dolphin_ver = SCM_DESC_STR " " " Win";
 #elif __APPLE__
-  static const std::string netplay_dolphin_ver = SCM_DESC_STR " Mac";
+  static const std::string netplay_dolphin_ver = SCM_DESC_STR " " " Mac";
 #else
-  static const std::string netplay_dolphin_ver = SCM_DESC_STR " Lin";
+  static const std::string netplay_dolphin_ver = SCM_DESC_STR " " " Lin";
 #endif
   return netplay_dolphin_ver;
 }

@@ -49,6 +49,8 @@ struct SConfig
   bool bJITNoBlockLinking = false;
 
   bool bCopyWiiSaveNetplay = true;
+  bool bBrawlMusicOff = true;
+  bool bIsSpectator = true;
 
   DiscIO::Region m_region;
 

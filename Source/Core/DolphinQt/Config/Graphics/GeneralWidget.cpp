@@ -63,7 +63,8 @@ void GeneralWidget::CreateWidgets()
   m_previous_backend = m_backend_combo->currentIndex();
 
   m_aspect_combo = new ConfigChoice({tr("Auto"), tr("Force 16:9"), tr("Force 4:3"),
-                                     tr("Stretch to Window"), tr("Custom"), tr("Custom (Stretch)")},
+                                    tr("Stretch to Window"), tr("Force 19:15 (P+)"),
+                                    tr("Force 69:40 (P+ Widescreen)"), tr("Custom"), tr("Custom (Stretch)")},
                                     Config::GFX_ASPECT_RATIO, m_game_layer);
   m_custom_aspect_label = new QLabel(tr("Custom Aspect Ratio:"));
   constexpr int MAX_CUSTOM_ASPECT_RATIO_RESOLUTION = 10000;
@@ -260,6 +261,8 @@ void GeneralWidget::AddDescriptions()
       "type of TV the game seems to be targeting."
       "<br><br><b>Force 16:9</b>: Mimics a TV with a 16:9 (widescreen) aspect ratio."
       "<br><br><b>Force 4:3</b>: Mimics a TV with a 4:3 aspect ratio."
+      "<br><br><b>Force 19:15 (P+)</b>: Forces P+'s game-specific aspect ratio."
+      "<br><br><b>Force 69:40 (P+ Widescreen)</b>: Forces P+'s game-specific aspect ratio (widescreen)."
       "<br><br><b>Stretch to Window</b>: Stretches the image to the window size. "
       "This will usually distort the image's proportions."
       "<br><br><b>Custom</b>: Mimics a TV with the specified aspect ratio. "
@@ -267,7 +270,7 @@ void GeneralWidget::AddDescriptions()
       "<br><br><b>Custom (Stretch)</b>: Similar to `Custom`, but stretches the image to the "
       "specified aspect ratio. This will usually distort the image's proportions, and should not "
       "be used under normal circumstances."
-      "<br><br><dolphin_emphasis>If unsure, select Auto.</dolphin_emphasis>");
+      "<br><br><dolphin_emphasis>If unsure, select Force 69:40 (P+ Widescreen).</dolphin_emphasis>");
   static const char TR_VSYNC_DESCRIPTION[] = QT_TR_NOOP(
       "Waits for vertical blanks in order to prevent tearing.<br><br>Decreases performance "
       "if emulation speed is below 100%.<br><br><dolphin_emphasis>If unsure, leave "
@@ -276,7 +279,7 @@ void GeneralWidget::AddDescriptions()
   static const char TR_SHADER_COMPILE_SPECIALIZED_DESCRIPTION[] =
       QT_TR_NOOP("Ubershaders are never used. Stuttering will occur during shader "
                  "compilation, but GPU demands are low.<br><br>Recommended for low-end hardware. "
-                 "<br><br><dolphin_emphasis>If unsure, select this mode.</dolphin_emphasis>");
+                 "<br><br><dolphin_emphasis>Not recommended, use other options.</dolphin_emphasis>");
   // The "very powerful GPU" mention below is by 2021 PC GPU standards
   static const char TR_SHADER_COMPILE_EXCLUSIVE_UBER_DESCRIPTION[] = QT_TR_NOOP(
       "Ubershaders will always be used. Provides a near stutter-free experience at the cost of "
@@ -291,15 +294,15 @@ void GeneralWidget::AddDescriptions()
   static const char TR_SHADER_COMPILE_SKIP_DRAWING_DESCRIPTION[] = QT_TR_NOOP(
       "Prevents shader compilation stuttering by not rendering waiting objects. Can work in "
       "scenarios where Ubershaders doesn't, at the cost of introducing visual glitches and broken "
-      "effects.<br><br><dolphin_emphasis>Not recommended, only use if the other "
-      "options give poor results.</dolphin_emphasis>");
+      "effects.<br><br><dolphin_emphasis>Use this option if you encounter excessive stuttering "
+      "with other options.</dolphin_emphasis>");
   static const char TR_SHADER_COMPILE_BEFORE_START_DESCRIPTION[] =
       QT_TR_NOOP("Waits for all shaders to finish compiling before starting a game. Enabling this "
                  "option may reduce stuttering or hitching for a short time after the game is "
                  "started, at the cost of a longer delay before the game starts. For systems with "
                  "two or fewer cores, it is recommended to enable this option, as a large shader "
                  "queue may reduce frame rates.<br><br><dolphin_emphasis>Otherwise, if "
-                 "unsure, leave this unchecked.</dolphin_emphasis>");
+                 "unsure, leave this checked.</dolphin_emphasis>");
 
   m_backend_combo->SetTitle(tr("Backend"));
   m_backend_combo->SetDescription(
