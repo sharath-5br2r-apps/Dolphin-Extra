@@ -344,8 +344,9 @@ jobs:
           $ZIP_NAME = "dolphin-extra-windows-vpr${PR_NUM}-${{ matrix.arch }}.zip"
           $EXE_NAME = "dolphin-extra-windows-installer-vpr${PR_NUM}-${{ matrix.arch }}.exe"
 
-          New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
-          
+          $ARTIFACT_DIR = "${{ github.workspace }}\artifact"
+          New-Item -ItemType Directory -Force -Path $ARTIFACT_DIR | Out-Null
+
           # Locate built binary directory
           $BIN_PATH = ".\Binary\${{ matrix.bin_dir }}"
           if (-not (Test-Path $BIN_PATH)) {
@@ -356,15 +357,25 @@ jobs:
           Push-Location $BIN_PATH
           attrib +r Sys\*.* /s 2>$null
           fsutil file createnew portable.txt 0
-          7z a "$PWD\..\..\artifact\$ZIP_NAME" .\*
+          7z a "$ARTIFACT_DIR\$ZIP_NAME" .\*
           Pop-Location
+
+          # Refresh PATH so makensis (installed by choco) is discovered
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") + ";$env:Path"
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+            if (Test-Path "C:\Program Files (x86)\NSIS\makensis.exe") {
+              $env:Path = "C:\Program Files (x86)\NSIS;$env:Path"
+            } elseif (Test-Path "C:\Program Files\NSIS\makensis.exe") {
+              $env:Path = "C:\Program Files\NSIS;$env:Path"
+            }
+          }
 
           # Prepare NSIS Setup Installer Package
           if (Get-Command makensis -ErrorAction SilentlyContinue) {
             Push-Location "Installer"
             makensis /DDOLPHIN_ARCH=${{ matrix.bin_dir }} /DPRODUCT_VERSION=vpr${PR_NUM} Installer.nsi
             if (Test-Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe") {
-              Move-Item -Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe" -Destination "..\artifact\$EXE_NAME" -Force
+              Move-Item -Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe" -Destination "$ARTIFACT_DIR\$EXE_NAME" -Force
             }
             Pop-Location
           } else {
