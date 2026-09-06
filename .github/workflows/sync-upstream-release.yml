@@ -372,8 +372,12 @@ jobs:
 
           # Prepare NSIS Setup Installer Package
           if (Get-Command makensis -ErrorAction SilentlyContinue) {
+            $ABS_BIN_PATH = (Resolve-Path $BIN_PATH -ErrorAction SilentlyContinue).Path
+            if (-not $ABS_BIN_PATH) {
+              $ABS_BIN_PATH = "${{ github.workspace }}\Binary\${{ matrix.bin_dir }}"
+            }
             Push-Location "Distribution\Windows"
-            makensis /DDOLPHIN_ARCH=${{ matrix.bin_dir }} /DPRODUCT_VERSION=vpr${PR_NUM} /DBINARY_SOURCE_DIR="$BIN_PATH" Installer.nsi
+            makensis /DDOLPHIN_ARCH=${{ matrix.bin_dir }} /DPRODUCT_VERSION=vpr${PR_NUM} /DBINARY_SOURCE_DIR="$ABS_BIN_PATH" Installer.nsi
             if (Test-Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe") {
               Move-Item -Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe" -Destination "$ARTIFACT_DIR\$EXE_NAME" -Force
             }
