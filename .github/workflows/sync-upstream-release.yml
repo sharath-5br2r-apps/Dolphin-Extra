@@ -372,8 +372,8 @@ jobs:
 
           # Prepare NSIS Setup Installer Package
           if (Get-Command makensis -ErrorAction SilentlyContinue) {
-            Push-Location "Installer"
-            makensis /DDOLPHIN_ARCH=${{ matrix.bin_dir }} /DPRODUCT_VERSION=vpr${PR_NUM} Installer.nsi
+            Push-Location "Distribution\Windows"
+            makensis /DDOLPHIN_ARCH=${{ matrix.bin_dir }} /DPRODUCT_VERSION=vpr${PR_NUM} /DBINARY_SOURCE_DIR="$BIN_PATH" Installer.nsi
             if (Test-Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe") {
               Move-Item -Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe" -Destination "$ARTIFACT_DIR\$EXE_NAME" -Force
             }

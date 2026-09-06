@@ -19,7 +19,9 @@
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${PRODUCT_NAME}.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 
-!define BINARY_SOURCE_DIR "..\Binary\${DOLPHIN_ARCH}"
+!ifndef BINARY_SOURCE_DIR
+!define BINARY_SOURCE_DIR "..\..\Binary\${DOLPHIN_ARCH}"
+!endif
 
 Name "${PRODUCT_NAME}"
 OutFile "dolphin-${DOLPHIN_ARCH}-${PRODUCT_VERSION}.exe"
