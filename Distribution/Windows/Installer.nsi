@@ -45,7 +45,7 @@ ShowUnInstDetails show
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
 
 ; License page
-!insertmacro MUI_PAGE_LICENSE "..\Data\license.txt"
+!insertmacro MUI_PAGE_LICENSE "..\..\LICENSES\GPL-2.0-or-later.txt"
 ; All/Current user selection page
 !insertmacro MULTIUSER_PAGE_INSTALLMODE
 ; Directory page
