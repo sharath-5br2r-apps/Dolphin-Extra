@@ -885,6 +885,8 @@ jobs:
                   "arch": arch,
                   "ext": ext,
                   "version": release_version,
+                  "os": "android",
+                  "isVanilla": False,
                   "patches": "dolphin-extra",
                   "changelog": changelog,
                   "applied_patches": applied_patches
