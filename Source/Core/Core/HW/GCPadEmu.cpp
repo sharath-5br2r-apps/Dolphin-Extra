@@ -164,13 +164,14 @@ GCPadStatus GCPad::GetInput() const
   m_triforce->GetState(&pad.switches, triforce_bitmask, m_input_override_function);
 
   // sticks
+  // P+ change: revert the coordinates back to un-normalized/symmetrical ranges to fix rectangle controllers
   const auto main_stick_state = m_main_stick->GetState(m_input_override_function);
-  pad.stickX = MapFloat<u8>(main_stick_state.x, GCPadStatus::MAIN_STICK_CENTER_X, 1);
-  pad.stickY = MapFloat<u8>(main_stick_state.y, GCPadStatus::MAIN_STICK_CENTER_Y, 1);
+  pad.stickX = MapFloat<u8>(main_stick_state.x, GCPadStatus::MAIN_STICK_CENTER_X);
+  pad.stickY = MapFloat<u8>(main_stick_state.y, GCPadStatus::MAIN_STICK_CENTER_Y);
 
   const auto c_stick_state = m_c_stick->GetState(m_input_override_function);
-  pad.substickX = MapFloat<u8>(c_stick_state.x, GCPadStatus::C_STICK_CENTER_X, 1);
-  pad.substickY = MapFloat<u8>(c_stick_state.y, GCPadStatus::C_STICK_CENTER_Y, 1);
+  pad.substickX = MapFloat<u8>(c_stick_state.x, GCPadStatus::C_STICK_CENTER_X);
+  pad.substickY = MapFloat<u8>(c_stick_state.y, GCPadStatus::C_STICK_CENTER_Y);
 
   // triggers
   std::array<ControlState, 2> triggers;

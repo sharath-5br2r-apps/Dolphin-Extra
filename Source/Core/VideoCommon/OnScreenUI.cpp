@@ -16,6 +16,7 @@
 #include "Core/Config/NetplaySettings.h"
 #include "Core/Movie.h"
 #include "Core/System.h"
+#include "InputCommon/GCAdapter.h"
 
 #include "VideoCommon/AbstractGfx.h"
 #include "VideoCommon/AbstractPipeline.h"
@@ -331,6 +332,24 @@ void OnScreenUI::DrawDebugText()
   const std::string profile_output = Common::Profiler::ToString();
   if (!profile_output.empty())
     ImGui::TextUnformatted(profile_output.c_str());
+
+  if (GCAdapter::IsReadingAtReducedRate() && Config::Get(Config::MAIN_SHOW_ADAPTER_WARNING))
+  {
+    ImGui::TextWrapped(
+      "Your GameCube Controller Adapter is reading inputs at a reduced rate.\n"
+      "You can still play normally but you will experience higher input lag.\n"
+      "This indicates a potential hardware or driver issue.\n"
+      "\n"
+      "If you're using a computer with an AMD Ryzen processor:\n"
+      "Try connecting the black plug of your adapter to a USB 3.0/3.1 Gen 1 port on your motherboard.\n"
+      "These ports are usually blue or say \"SS\" (SuperSpeed). USB 3.2 (light blue) or USB 2.0 (black) will NOT work.\n"
+      "\n"
+      "The recommended driver on Windows is WinUSB. If you're using another driver in Zadig try switching to WinUSB.\n"
+      "\n"
+      "You can turn this message off by going to \"Config\" and then \"Advanced\".\n"
+      "Under \"Troubleshooting\", uncheck \"Show a message when inputs are being read at a reduced rate\".");
+
+  }
 }
 
 void OnScreenUI::DrawChallengesAndLeaderboards()

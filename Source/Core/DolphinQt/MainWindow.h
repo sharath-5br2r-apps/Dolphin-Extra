@@ -174,6 +174,10 @@ private:
   void ShowGraphicsWindow();
   void ShowFreeLookWindow();
   void ShowAboutDialog();
+  #ifdef SHOW_UPDATER
+  void ShowUpdateDialog();
+  void CheckForUpdatesAuto();
+#endif  // SHOW_UPDATER
   void ShowHotkeyDialog();
   void ShowNetPlaySetupDialog();
   void ShowNetPlayBrowser();
@@ -211,6 +215,8 @@ private:
   void OnStopRecording();
   void OnExportRecording();
   void OnActivateChat();
+  void OnCollapseChat();
+  void OnExpandChat();
   void OnRequestGolfControl();
   void ShowTASInput();
   void ShowOSDWindow();
