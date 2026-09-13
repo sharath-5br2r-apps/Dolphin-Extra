@@ -74,6 +74,32 @@
 
     <!-- General Preference Fragment -->
     <string name="general_submenu">General</string>
+    <string name="user_data_storage">User Data Storage Location</string>
+    <string name="user_data_storage_description">Where Dolphin stores saves, settings, and other user data. Internal/SD Card/Custom requires restarting Dolphin to take effect. On Android 11+, \"All files access\" permission must be granted. For Custom Location, Dolphin creates a \"dolphin-emu\" folder inside the folder you choose.</string>
+    <string name="custom_location_unsupported">That location can\'t be used. Pick a folder on internal storage or an SD card (cloud storage isn\'t supported).</string>
+    <string name="storage_restart_title">Restart Required</string>
+    <string name="storage_restart_message">Dolphin needs to restart to apply the new storage location.</string>
+    <string name="storage_restart_button">Restart Now</string>
+    <string name="storage_permission_title">All Files Access Required</string>
+    <string name="storage_permission_needed">You have selected Internal Storage or SD Card for user data. Android 11 and above requires the \"All files access\" permission to write to this location. Dolphin will use Scoped Storage until the permission is granted.</string>
+    <string name="storage_permission_grant">Grant Permission</string>
+    <string name="storage_permission_use_scoped">Use Scoped Storage</string>
+    <string name="migrate_user_data_title">Move Existing User Data?</string>
+    <string name="migrate_user_data_message">Dolphin found existing user data in your previous storage location. Would you like to move it to the new location? Files will be deleted from the old location once they are verified. This may take a moment.</string>
+    <string name="migrate_user_data_yes">Move</string>
+    <string name="migrate_user_data_no">No Thanks</string>
+    <string name="migrate_user_data_in_progress">Moving User Data…</string>
+    <string name="migrate_user_data_progress">Preparing…</string>
+    <string name="migrate_user_data_progress_file">File %1$d of %2$d</string>
+    <string name="migrate_conflict_title">Files Already Exist</string>
+    <string name="migrate_conflict_message">The dolphin-emu folder at the new location already contains data. Replacing will delete all existing files there, then move your files from the previous location. This cannot be undone.</string>
+    <string name="migrate_conflict_replace">Replace</string>
+    <string name="migrate_conflict_keep">Keep Existing</string>
+    <string name="migrate_user_data_success_title">Migration Complete</string>
+    <string name="migrate_user_data_success_message">Your data has been moved and verified. Dolphin needs to restart to load your settings from the new location.</string>
+    <string name="migrate_user_data_failed">Migration failed or verification failed. Files have been kept in the original location.</string>
+    <string name="migrate_user_data_failed_space">Not enough free space at the destination to move your data. Free up space and try again. Files have been kept in the original location.</string>
+    <string name="migrate_user_data_failed_sdcard">SD card is not available. Reconnect it and try again. Files have been kept in the original location.</string>
     <string name="dual_core">Dual Core (speedhack)</string>
     <string name="dual_core_description">Split workload to two CPU cores instead of one. Increases speed.</string>
     <string name="enable_cheats">Enable Cheats</string>
@@ -404,7 +430,7 @@
     <string name="overclock_title_description">Adjusts the emulated CPU\'s clock rate if \"Override Emulated CPU Clock Speed\" is enabled.</string>
     <string name="memory_override">Memory Override</string>
     <string name="enable_memory_size_override">Enable Emulated Memory Size Override</string>
-    <string name="enable_memory_size_override_description">Sets the amount of RAM in the emulated console to the values provided.\n\nWARNING: Enabling this will completely break many games. By default, Dolphin determines what value is required based on the game information.</string>
+    <string name="enable_memory_size_override_description">Adjusts the amount of RAM in the emulated console.\n\nWARNING: Enabling this will completely break many games. Only a small number of games can benefit from this.</string>
     <string name="main_mem1_size">MEM1 Size</string>
     <string name="main_mem2_size">MEM2 Size</string>
     <string name="gpu_options">GPU Options</string>
@@ -509,6 +535,7 @@
     <string name="grid_menu_refresh">Refresh Library</string>
     <string name="grid_menu_open_file">Open File</string>
     <string name="grid_menu_install_wad">Install WAD</string>
+    <string name="grid_menu_disc_to_wii_menu">Add Disc Image to Wii Menu…</string>
     <string name="grid_menu_import_wii_save">Import Wii Save</string>
     <string name="grid_menu_import_nand_backup">Import BootMii NAND Backup</string>
     <string name="grid_menu_online_system_update">Perform Online System Update</string>
@@ -537,6 +564,12 @@
     <string name="properties_set_default_iso">Set as Default ISO</string>
     <string name="properties_convert">Convert File</string>
     <string name="properties_system_update">Perform System Update</string>
+    <string name="properties_add_to_wii_menu">Add to Wii Menu</string>
+    <string name="properties_remove_from_wii_menu">Remove from Wii Menu</string>
+    <string name="add_to_wii_menu_success">Successfully added game to the Wii Menu.</string>
+    <string name="add_to_wii_menu_failure">Failed to add game to the Wii Menu.</string>
+    <string name="remove_from_wii_menu_success">Successfully removed game from the Wii Menu.</string>
+    <string name="remove_from_wii_menu_failure">Failed to remove game from the Wii Menu.</string>
     <string name="properties_edit_game_settings">Edit Game Settings</string>
     <string name="properties_edit_cheats">Edit Cheats</string>
     <string name="properties_clear_game_settings">Clear Game Settings and Cheats</string>
@@ -688,8 +721,8 @@ It can efficiently compress both junk data and encrypted Wii data.
     <!-- Misc -->
     <string name="enabled">Enabled</string>
     <string name="default_values">Default Values</string>
-    <string name="slider_setting_value">%.0f%2$s</string>
-    <string name="slider_setting_float_value">%.2f%2$s</string>
+    <string name="slider_setting_value" formatted="false">%.0f%2$s</string>
+    <string name="slider_setting_float_value" formatted="false">%.2f%2$s</string>
     <string name="disc_number">Disc %1$d</string>
     <string name="replug_gc_adapter">GameCube Adapter couldn\'t be opened. Please re-plug the device.</string>
     <string name="disabled_gc_overlay_notice">The selected GameCube controller is set to \"None\"</string>
@@ -999,7 +1032,6 @@ It can efficiently compress both junk data and encrypted Wii data.
     <string name="achievements_logout">Log Out</string>
     <string name="achievements_login_in_progress">Logging In</string>
     <string name="achievements_login_failed">Login Failed</string>
-
     <!-- Netplay -->
     <string name="netplay_setup_title">Netplay Setup</string>
     <string name="netplay_connection_type">Connection type</string>
