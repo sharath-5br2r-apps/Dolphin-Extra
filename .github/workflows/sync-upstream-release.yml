@@ -818,7 +818,17 @@ jobs:
           import os, json, glob, subprocess, zipfile, re
 
           build_json = {}
-          apks = glob.glob("./release-files/*.apk")
+          def detect_os(text):
+              clean = (text or "").lower()
+              if any(x in clean for x in ["macos", "mac", "darwin", "osx", ".dmg", ".pkg"]):
+                  return "macOS"
+              if any(x in clean for x in ["windows", "win", ".exe", ".msi"]):
+                  return "Windows"
+              if any(x in clean for x in ["linux", "ubuntu", "debian", ".appimage", ".deb", ".rpm"]):
+                  return "Linux"
+              return "Android"
+
+          files = glob.glob("./release-files/*")
           changelog = open("release_notes.md").read() if os.path.exists("release_notes.md") else ""
           applied_patches = [
               "Custom Storage Location (Scoped Storage / Internal Storage / SD Card)",
@@ -826,76 +836,83 @@ jobs:
           ]
           release_version = os.environ.get("RELEASE_NAME", "")
 
-          for apk in apks:
-              filename = os.path.basename(apk)
-              name = filename
+          for filepath in files:
+              filename = os.path.basename(filepath)
+              if filename in ("build.json", "release_notes.md"):
+                  continue
+              ext = os.path.splitext(filename)[1].lstrip(".")
+              file_os = detect_os(filename)
+              is_apk = ext.lower() == "apk"
+
               arch = "universal"
-              if "arm64" in filename.lower():
-                  arch = "arm64-v8a"
-              elif "x86_64" in filename.lower():
-                  arch = "x86_64"
-              elif "v7a" in filename.lower() or "arm32" in filename.lower():
-                  arch = "armeabi-v7a"
+              if is_apk:
+                  if "arm64" in filename.lower():
+                      arch = "arm64-v8a"
+                  elif "x86_64" in filename.lower():
+                      arch = "x86_64"
+                  elif "v7a" in filename.lower() or "arm32" in filename.lower():
+                      arch = "armeabi-v7a"
 
               min_sdk = "21"
               native_libraries = []
               densities = []
 
-              # Inspect APK using aapt2/aapt if available, else zipfile
-              try:
-                  aapt = subprocess.run(["which", "aapt2"], capture_output=True, text=True).stdout.strip() or subprocess.run(["which", "aapt"], capture_output=True, text=True).stdout.strip()
-                  if aapt:
-                      out = subprocess.run([aapt, "dump", "badging", apk], capture_output=True, text=True).stdout
-                      m_sdk = re.search(r"(?:sdkVersion|minSdkVersion):\x27([^\x27]+)\x27", out)
-                      if m_sdk:
-                          min_sdk = m_sdk.group(1)
-                      m_den = re.search(r"densities:\s*\x27([^\x27]+)\x27", out)
-                      if m_den:
-                          densities = [d for d in m_den.group(1).split() if d]
-                      m_nat = re.search(r"native-code:\s*\x27([^\x27]+)\x27", out)
-                      if m_nat:
-                          native_libraries = [n for n in m_nat.group(1).split() if n]
-              except Exception as e:
-                  print(f"aapt dump failed: {e}")
-
-              if not native_libraries and zipfile.is_zipfile(apk):
+              if is_apk:
+                  # Inspect APK using aapt2/aapt if available, else zipfile
                   try:
-                      with zipfile.ZipFile(apk, "r") as z:
-                          libs = set()
-                          for f in z.namelist():
-                              if f.startswith("lib/") and "/" in f[4:]:
-                                  libs.add(f.split("/")[1])
-                          if libs:
-                              native_libraries = sorted(list(libs))
+                      aapt = subprocess.run(["which", "aapt2"], capture_output=True, text=True).stdout.strip() or subprocess.run(["which", "aapt"], capture_output=True, text=True).stdout.strip()
+                      if aapt:
+                          out = subprocess.run([aapt, "dump", "badging", filepath], capture_output=True, text=True).stdout
+                          m_sdk = re.search(r"(?:sdkVersion|minSdkVersion):\x27([^\x27]+)\x27", out)
+                          if m_sdk:
+                              min_sdk = m_sdk.group(1)
+                          m_den = re.search(r"densities:\s*\x27([^\x27]+)\x27", out)
+                          if m_den:
+                              densities = [d for d in m_den.group(1).split() if d]
+                          m_nat = re.search(r"native-code:\s*\x27([^\x27]+)\x27", out)
+                          if m_nat:
+                              native_libraries = [n for n in m_nat.group(1).split() if n]
                   except Exception as e:
-                      print(f"zip inspection failed: {e}")
+                      print(f"aapt dump failed: {e}")
 
-              if not native_libraries:
-                  if "x86_64" in filename.lower() or "chromeos" in filename.lower():
-                      native_libraries = ["x86_64"]
-                  elif "arm64" in filename.lower() or "aarch64" in filename.lower() or "v8a" in filename.lower():
-                      native_libraries = ["arm64-v8a"]
-                  else:
-                      native_libraries = ["arm64-v8a", "x86_64"]
+                  if not native_libraries and zipfile.is_zipfile(filepath):
+                      try:
+                          with zipfile.ZipFile(filepath, "r") as z:
+                              libs = set()
+                              for f in z.namelist():
+                                  if f.startswith("lib/") and "/" in f[4:]:
+                                      libs.add(f.split("/")[1])
+                              if libs:
+                                  native_libraries = sorted(list(libs))
+                      except Exception as e:
+                          print(f"zip inspection failed: {e}")
+
+                  if not native_libraries:
+                      if "x86_64" in filename.lower() or "chromeos" in filename.lower():
+                          native_libraries = ["x86_64"]
+                      elif "arm64" in filename.lower() or "aarch64" in filename.lower() or "v8a" in filename.lower():
+                          native_libraries = ["arm64-v8a"]
+                      else:
+                          native_libraries = ["arm64-v8a", "x86_64"]
 
               entry_key = filename.lower()
-              asset_ext = f".{ext.lstrip('.')}" if ext else ".apk"
               asset_obj = {
                   "name": filename,
                   "arch": arch,
-                  "ext": asset_ext,
-                  "os": "Android",
-                  "min_sdk": min_sdk,
-                  "densities": densities,
-                  "native_libraries": native_libraries,
-                  "appliedPatches": applied_patches,
+                  "ext": f".{ext}" if ext else "",
+                  "os": file_os,
+                  "appliedPatches": applied_patches if is_apk else [],
                   "skippedPatches": [],
                   "failedPatches": []
               }
+              if is_apk:
+                  asset_obj["min_sdk"] = min_sdk
+                  asset_obj["densities"] = densities
+                  asset_obj["native_libraries"] = native_libraries
+
               meta_item = {
-                  "name": name,
+                  "name": filename,
                   "version": release_version,
-                  "os": "android",
                   "isVanilla": False,
                   "patches": "dolphin-extra",
                   "changelog": changelog,
