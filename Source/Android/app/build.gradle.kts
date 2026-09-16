@@ -42,26 +42,13 @@ android {
         versionCode = getBuildVersionCode()
         versionName = getGitVersion()
 
+        applicationId = "org.dolphinemu.dolphinemu"
+        resValue("string", "app_name_suffixed", "Dolphin Emulator")
+
         buildConfigField("String", "GIT_HASH", "\"${getGitHash()}\"")
         buildConfigField("String", "BRANCH", "\"${getBranch()}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    // Define flavor dimensions
-    flavorDimensions += "variant"
-
-    productFlavors {
-        create("stock") {
-            dimension = "variant"
-            applicationId = "org.dolphinemu.dolphinemu"
-            resValue("string", "app_name_suffixed", "Dolphin Emulator")
-        }
-        create("gfp") {
-            dimension = "variant"
-            applicationId = "com.tencent.tmgp.pubgmhd"
-            resValue("string", "app_name_suffixed", "Dolphin Emulator")
-        }
     }
 
     signingConfigs {

@@ -166,14 +166,6 @@ jobs:
     needs: [check, sync]
     if: always() && needs.sync.result == 'success'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - flavor: stock
-            task: ":app:assembleStockRelease"
-          - flavor: gfp
-            task: ":app:assembleGfpRelease"
     env:
       CMAKE_C_COMPILER_LAUNCHER: "ccache"
       CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
@@ -187,7 +179,7 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ccache-android-${{ matrix.flavor }}-${{ runner.os }}
+          key: ccache-android-${{ runner.os }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -197,7 +189,9 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
 
       - name: Install NDK
         run: sdkmanager "ndk;30.0.15729638"
@@ -206,19 +200,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Source/Android/.cxx
-          key: cxx-${{ matrix.flavor }}-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'Source/Core/**/*.cpp', 'Source/Core/**/*.h') }}
-          restore-keys: cxx-${{ matrix.flavor }}-${{ runner.os }}-
+          key: cxx-android-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'Source/Core/**/*.cpp', 'Source/Core/**/*.h') }}
+          restore-keys: cxx-android-${{ runner.os }}-
 
       - name: Decode release keystore
         run: echo "${{ secrets.KEYSTORE_P12_BASE64 }}" | base64 -d > "$RUNNER_TEMP/dolphincs-release.p12"
 
-      - name: Build release APK (${{ matrix.flavor }})
+      - name: Build release APK
         working-directory: Source/Android
         run: |
           PR_NUM="${{ needs.check.outputs.pr_number }}"
           chmod +x gradlew
 
-          ./gradlew ${{ matrix.task }} --no-daemon \
+          ./gradlew :app:assembleRelease --no-daemon \
             -Pkeystore="$RUNNER_TEMP/dolphincs-release.p12" \
             -Pstorepass="${{ secrets.KEYSTORE_PASSWORD }}" \
             -Pkeyalias="${{ vars.KEYSTORE_ALIAS }}" \
@@ -226,16 +220,12 @@ jobs:
 
           mkdir -p ../../artifact
 
-          FOUND_APK=$(find app/build/outputs/apk/${{ matrix.flavor }}/release -type f -name "*.apk" ! -name "*unaligned*" | head -n 1)
-
-          if [ -z "$FOUND_APK" ]; then
-            FOUND_APK=$(find app/build/outputs/apk -type f -name "*.apk" ! -name "*unaligned*" | grep -i "${{ matrix.flavor }}" | head -n 1)
-          fi
+          FOUND_APK=$(find app/build/outputs/apk -type f -name "*.apk" ! -name "*unaligned*" | head -n 1)
 
           if [ -n "$FOUND_APK" ]; then
-            mv "$FOUND_APK" "../../artifact/dolphin-extra-android-${{ matrix.flavor }}-vpr${PR_NUM}-all.apk"
+            mv "$FOUND_APK" "../../artifact/dolphin-extra-android-vpr${PR_NUM}-all.apk"
           else
-            echo "Failed to locate APK for flavor '${{ matrix.flavor }}'!"
+            echo "Failed to locate APK!"
             exit 1
           fi
         env:
@@ -248,7 +238,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-${{ matrix.flavor }}-build
+          name: android-build
           path: ./artifact/*.apk
           retention-days: 1
 
@@ -918,6 +908,10 @@ jobs:
                   "changelog": changelog,
                   "assets": [asset_obj]
               }
+              if is_apk:
+                  meta_item["variant"] = "Default"
+                  meta_item["package_name"] = "org.dolphinemu.dolphinemu"
+                  meta_item["display_name"] = "Dolphin Emulator"
 
               build_json[entry_key] = meta_item
 
