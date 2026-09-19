@@ -22,7 +22,16 @@ def main():
             if not lower.endswith((".apk", ".apkm", ".xapk", ".apks", ".zip")):
                 continue
             is_apk = lower.endswith((".apk", ".apkm", ".xapk", ".apks"))
-            arch = asset.get("arch") or "universal"
+            arch = asset.get("arch")
+            if not arch or arch == "universal":
+                if "x86_64" in filename.lower():
+                    arch = "x86_64"
+                elif "arm64-v8a" in filename.lower() or "aarch64" in filename.lower():
+                    arch = "arm64-v8a"
+                elif "arm-v7a" in filename.lower() or "armeabi-v7a" in filename.lower():
+                    arch = "arm"
+                else:
+                    arch = "universal"
             files[filename] = {
                 "name": "dolphin-extra",
                 "version": info.get("version", ""),
@@ -34,7 +43,7 @@ def main():
                 "brandName": None,
                 "variant": None,
                 "subVariant": None,
-                "packageName": info.get("package_name") if is_apk else None,
+                "packageName": (info.get("package_name") or "org.dolphinemu.dolphinemu") if is_apk else None,
                 "patches": info.get("patches") or None,
                 "patchesSource": info.get("patches_source") or None,
                 "densities": asset.get("densities", []),
