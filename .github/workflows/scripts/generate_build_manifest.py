@@ -89,7 +89,7 @@ def main():
                     "minSdk": apk.get("min_sdk"),
                     "versionCode": apk.get("version_code"),
                 })
-            files[filename] = record
+            files[filename] = {key: value for key, value in record.items() if value is not None and value != []}
     manifest = {"schema": 1, "kind": "build",
                 "meta": {"build": build, "channel": channel, "publishedAt": now},
                 "files": files}
