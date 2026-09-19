@@ -73,13 +73,7 @@ def main():
                 "variant": None,
                 "subVariant": None,
                 "packageName": (info.get("package_name") or "org.dolphinemu.dolphinemu") if is_apk else None,
-                "patches": info.get("patches") or None,
-                "patchesSource": info.get("patches_source") or None,
-                "densities": apk.get("densities", []) if is_apk else [],
-                "nativeLibraries": apk.get("native_libraries", []) if is_apk else [],
-                "minSdk": apk.get("min_sdk") if is_apk else None,
-                "versionCode": apk.get("version_code") if is_apk else None,
-                "patchSources": (info.get("patches") or "").split(),
+                "patchSources": [],
                 "changelogUrls": info.get("changelog_urls", []),
                 "changelogs": info.get("changelogs", []),
                 "appliedPatches": asset.get("appliedPatches", []),
@@ -88,7 +82,14 @@ def main():
                 "originBuild": build,
                 "publishedAt": now,
             }
-            files[filename] = {key: value for key, value in record.items() if value is not None}
+            if is_apk:
+                record.update({
+                    "densities": apk.get("densities", []),
+                    "nativeLibraries": apk.get("native_libraries", []),
+                    "minSdk": apk.get("min_sdk"),
+                    "versionCode": apk.get("version_code"),
+                })
+            files[filename] = record
     manifest = {"schema": 1, "kind": "build",
                 "meta": {"build": build, "channel": channel, "publishedAt": now},
                 "files": files}
