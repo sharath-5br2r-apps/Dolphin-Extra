@@ -843,7 +843,8 @@ jobs:
                   elif "v7a" in filename.lower() or "arm32" in filename.lower():
                       arch = "armeabi-v7a"
 
-              min_sdk = "21"
+              min_sdk = ""
+              version_code = ""
               native_libraries = []
               densities = []
 
@@ -856,6 +857,9 @@ jobs:
                           m_sdk = re.search(r"(?:sdkVersion|minSdkVersion):\x27([^\x27]+)\x27", out)
                           if m_sdk:
                               min_sdk = m_sdk.group(1)
+                          m_version = re.search(r"versionCode=\x27([^\x27]+)\x27", out)
+                          if m_version:
+                              version_code = m_version.group(1)
                           m_den = re.search(r"densities:\s*\x27([^\x27]+)\x27", out)
                           if m_den:
                               densities = [d for d in m_den.group(1).split() if d]
@@ -877,15 +881,11 @@ jobs:
                       except Exception as e:
                           print(f"zip inspection failed: {e}")
 
-                  if not native_libraries:
-                      if "x86_64" in filename.lower() or "chromeos" in filename.lower():
-                          native_libraries = ["x86_64"]
-                      elif "arm64" in filename.lower() or "aarch64" in filename.lower() or "v8a" in filename.lower():
-                          native_libraries = ["arm64-v8a"]
-                      else:
-                          native_libraries = ["arm64-v8a", "x86_64"]
-
-              entry_key = filename.lower()
+              lower_name = filename.lower()
+              variant = None
+              sub_variant = None
+              entry_key = "dolphin-extra"
+              package_name = "org.dolphinemu.dolphinemu"
               asset_obj = {
                   "name": filename,
                   "arch": arch,
@@ -896,29 +896,47 @@ jobs:
                   "failedPatches": []
               }
               if is_apk:
-                  asset_obj["min_sdk"] = min_sdk
-                  asset_obj["densities"] = densities
-                  asset_obj["native_libraries"] = native_libraries
+                  asset_obj["package_name"] = package_name
+                  if min_sdk:
+                      asset_obj["min_sdk"] = min_sdk
+                  if version_code:
+                      asset_obj["version_code"] = version_code
+                  if densities:
+                      asset_obj["densities"] = densities
+                  if native_libraries:
+                      asset_obj["native_libraries"] = native_libraries
 
               meta_item = {
-                  "name": filename,
+                  "name": entry_key,
                   "version": release_version,
-                  "isVanilla": False,
                   "patches": "dolphin-extra",
                   "changelog": changelog,
+                  "changelog_urls": [],
+                  "changelogs": [],
+                  "package_name": package_name if is_apk else "",
+                  "display_name": "Dolphin Emulator",
+                  "patches_source": "",
+                  "engine_brand": "",
+                  "patch_brand": "",
+                  "variant": None,
+                  "sub_variant": None,
                   "assets": [asset_obj]
               }
-              if is_apk:
-                  meta_item["variant"] = "Default"
-                  meta_item["package_name"] = "org.dolphinemu.dolphinemu"
-                  meta_item["display_name"] = "Dolphin Emulator"
-
-              build_json[entry_key] = meta_item
+              if entry_key in build_json:
+                  build_json[entry_key]["assets"].append(asset_obj)
+              else:
+                  build_json[entry_key] = meta_item
 
           with open("build.json", "w") as f:
               json.dump(build_json, f, indent=2)
           '
           cp build.json ./release-files/build.json
+
+      - name: Convert build.json to release manifest
+        env:
+          NEXT_VER_CODE: ${{ needs.check.outputs.release_name }}
+          IS_PRERELEASE: "false"
+        run: python3 .github/workflows/scripts/generate_build_manifest.py
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
