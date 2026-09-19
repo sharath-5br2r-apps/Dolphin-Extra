@@ -11,7 +11,12 @@ from pathlib import Path
 
 def apk_metadata(path):
     result = {"min_sdk": None, "version_code": None, "densities": [], "native_libraries": []}
-    tool = shutil.which("aapt2") or shutil.which("aapt")
+    tools = [shutil.which("aapt2"), shutil.which("aapt")]
+    android_home = os.environ.get("ANDROID_HOME", "")
+    if android_home:
+        tools += sorted(Path(android_home).glob("build-tools/*/aapt2"), reverse=True)
+        tools += sorted(Path(android_home).glob("build-tools/*/aapt"), reverse=True)
+    tool = next((str(candidate) for candidate in tools if candidate), None)
     if not tool:
         return result
     output = subprocess.run([tool, "dump", "badging", str(path)], capture_output=True,

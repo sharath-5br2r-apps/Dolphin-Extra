@@ -193,6 +193,9 @@ jobs:
         with:
           packages: ''
 
+      - name: Install Android build tools
+        run: sdkmanager "build-tools;35.0.0"
+
       - name: Install NDK
         run: sdkmanager "ndk;30.0.15729638"
 
