@@ -36,13 +36,14 @@ android {
     }
 
     defaultConfig {
-        applicationId = "org.dolphinemu.dolphinemu"
         minSdk = 24
         targetSdk = 37
 
         versionCode = getBuildVersionCode()
-
         versionName = getGitVersion()
+
+        applicationId = "org.dolphinemu.dolphinemu"
+        resValue("string", "app_name_suffixed", "Dolphin Emulator")
 
         buildConfigField("String", "GIT_HASH", "\"${getGitHash()}\"")
         buildConfigField("String", "BRANCH", "\"${getBranch()}\"")
@@ -57,6 +58,7 @@ android {
                 storePassword = project.property("storepass").toString()
                 keyAlias = project.property("keyalias").toString()
                 keyPassword = project.property("keypass").toString()
+                storeType = "PKCS12"
             }
         }
     }
@@ -69,7 +71,6 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
 
-            resValue("string", "app_name_suffixed", "Dolphin Emulator")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -79,10 +80,8 @@ android {
         }
 
         // Signed by debug key disallowing distribution on Play Store.
-        // Attaches "debug" suffix to version and package name, allowing installation alongside the release build.
+        // Attaches "debug" suffix to version name, allowing side-by-side installation.
         debug {
-            resValue("string", "app_name_suffixed", "Dolphin Debug")
-            applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             isJniDebuggable = true
         }
@@ -102,7 +101,9 @@ android {
                 arguments(
                     "-DANDROID_STL=c++_static",
                     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
-                    "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+                    "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+                    "-DCMAKE_C_COMPILER_LAUNCHER=ccache",
+                    "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
                     // , "-DENABLE_GENERIC=ON"
                 )
                 abiFilters("arm64-v8a", "x86_64") //, "armeabi-v7a", "x86"

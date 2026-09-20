@@ -32,7 +32,7 @@ private:
   void CreateLayout();
   void ConnectLayout();
   void CreateBasic();
-  void CreateAutoUpdate();
+  // void CreateAutoUpdate(); // disabled, as we do not have separate update tracks for P+
   void CreateFallbackRegion();
   void AddDescriptions();
 
@@ -44,7 +44,7 @@ private:
   // Widgets
   QVBoxLayout* m_main_layout;
   ToolTipComboBox* m_combobox_speedlimit;
-  ToolTipComboBox* m_combobox_update_track;
+  // ToolTipComboBox* m_combobox_update_track;
   ToolTipComboBox* m_combobox_fallback_region;
   ConfigBool* m_checkbox_dualcore;
   ConfigBool* m_checkbox_cheats;

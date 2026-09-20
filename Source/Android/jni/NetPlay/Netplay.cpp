@@ -89,7 +89,7 @@ Java_org_dolphinemu_dolphinemu_features_netplay_NetplaySession_nativeAdjustClien
     JNIEnv* env, jobject obj, jint buffer)
 {
   if (auto* client = GetClientPointer(env, obj))
-    client->AdjustPadBufferSize(static_cast<u32>(buffer));
+    client->AdjustMinimumPadBufferSize(static_cast<u32>(buffer));
 }
 
 JNIEXPORT void JNICALL
@@ -97,7 +97,7 @@ Java_org_dolphinemu_dolphinemu_features_netplay_NetplaySession_nativeAdjustServe
     JNIEnv* env, jobject obj, jint buffer)
 {
   if (auto* server = GetServerPointer(env, obj))
-    server->AdjustPadBufferSize(static_cast<u32>(buffer));
+    server->AdjustMinimumPadBufferSize(static_cast<u32>(buffer));
 }
 
 JNIEXPORT jlong JNICALL
@@ -185,7 +185,7 @@ Java_org_dolphinemu_dolphinemu_features_netplay_NetplaySession_nativeHost(JNIEnv
   const std::string network_mode = Config::Get(Config::NETPLAY_NETWORK_MODE);
   const bool host_input_authority = network_mode == "hostinputauthority" || network_mode == "golf";
   server->SetHostInputAuthority(host_input_authority);
-  server->AdjustPadBufferSize(Config::Get(Config::NETPLAY_BUFFER_SIZE));
+  server->AdjustMinimumPadBufferSize(Config::Get(Config::NETPLAY_MINIMUM_BUFFER_SIZE));
 
   return reinterpret_cast<jlong>(server.release());
 }
