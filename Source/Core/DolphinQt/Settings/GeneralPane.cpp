@@ -70,8 +70,8 @@ void GeneralPane::CreateLayout()
   // Create layout here
   CreateBasic();
 
-  if (AutoUpdateChecker::SystemSupportsAutoUpdates())
-    CreateAutoUpdate();
+  /* if (AutoUpdateChecker::SystemSupportsAutoUpdates())
+    CreateAutoUpdate(); */ // disabled for P+ updater
 
   CreateFallbackRegion();
 
@@ -107,13 +107,13 @@ void GeneralPane::ConnectLayout()
   connect(m_checkbox_discord_presence, &QCheckBox::toggled, this, &GeneralPane::OnSaveConfig);
 #endif
 
-  if (AutoUpdateChecker::SystemSupportsAutoUpdates())
+  /* if (AutoUpdateChecker::SystemSupportsAutoUpdates())
   {
     connect(m_combobox_update_track, &QComboBox::currentIndexChanged, this,
             &GeneralPane::OnSaveConfig);
     connect(&Settings::Instance(), &Settings::AutoUpdateTrackChanged, this,
             &GeneralPane::LoadConfig);
-  }
+  } */ // disabled for P+ updater
 
   // Advanced
   connect(m_combobox_speedlimit, &QComboBox::currentIndexChanged, [this] {
@@ -190,7 +190,7 @@ void GeneralPane::CreateBasic()
   speed_limit_layout->addRow(tr("&Speed Limit:"), m_combobox_speedlimit);
 }
 
-void GeneralPane::CreateAutoUpdate()
+/* void GeneralPane::CreateAutoUpdate()
 {
   auto* auto_update_group = new QGroupBox(tr("Auto Update Settings"));
   auto* auto_update_group_layout = new QFormLayout;
@@ -211,7 +211,7 @@ void GeneralPane::CreateAutoUpdate()
   {
     m_combobox_update_track->addItem(option);
   }
-}
+} */ // disabled for P+ updater
 
 void GeneralPane::CreateFallbackRegion()
 {
@@ -251,7 +251,7 @@ void GeneralPane::LoadConfig()
 {
   const QSignalBlocker blocker(this);
 
-  if (AutoUpdateChecker::SystemSupportsAutoUpdates())
+  /* if (AutoUpdateChecker::SystemSupportsAutoUpdates())
   {
     const auto track = Settings::Instance().GetAutoUpdateTrack().toStdString();
 
@@ -262,8 +262,8 @@ void GeneralPane::LoadConfig()
     else if (track == AUTO_UPDATE_DEV_STRING)
       SignalBlocking(m_combobox_update_track)->setCurrentIndex(AUTO_UPDATE_DEV_INDEX);
     else
-      SignalBlocking(m_combobox_update_track)->setCurrentIndex(AUTO_UPDATE_RELEASE_INDEX);
-  }
+      SignalBlocking(m_combobox_update_track)->setCurrentIndex(AUTO_UPDATE_BETA_INDEX);
+  } */ // disabled for P+ updater
 
 #if defined(USE_ANALYTICS) && USE_ANALYTICS
   SignalBlocking(m_checkbox_enable_analytics)
@@ -291,25 +291,7 @@ void GeneralPane::LoadConfig()
     SignalBlocking(m_combobox_fallback_region)->setCurrentIndex(FALLBACK_REGION_NTSCJ_INDEX);
 }
 
-static QString UpdateTrackFromIndex(int index)
-{
-  QString value;
 
-  switch (index)
-  {
-  case AUTO_UPDATE_DISABLE_INDEX:
-    value = QString::fromStdString(AUTO_UPDATE_DISABLE_STRING);
-    break;
-  case AUTO_UPDATE_RELEASE_INDEX:
-    value = QString::fromStdString(AUTO_UPDATE_RELEASE_STRING);
-    break;
-  case AUTO_UPDATE_DEV_INDEX:
-    value = QString::fromStdString(AUTO_UPDATE_DEV_STRING);
-    break;
-  }
-
-  return value;
-}
 
 static DiscIO::Region UpdateFallbackRegionFromIndex(int index)
 {
@@ -340,11 +322,12 @@ void GeneralPane::OnSaveConfig()
 {
   Config::ConfigChangeCallbackGuard config_guard;
 
-  if (AutoUpdateChecker::SystemSupportsAutoUpdates())
+  /*auto& settings = SConfig::GetInstance();
+   if (AutoUpdateChecker::SystemSupportsAutoUpdates())
   {
     Settings::Instance().SetAutoUpdateTrack(
         UpdateTrackFromIndex(m_combobox_update_track->currentIndex()));
-  }
+  } */ // disabled for P+ updater
 
 #ifdef USE_DISCORD_PRESENCE
   Discord::SetDiscordPresenceEnabled(m_checkbox_discord_presence->isChecked());
@@ -383,7 +366,7 @@ void GeneralPane::AddDescriptions()
       "Enables the use of AR and Gecko cheat codes which can be used to modify games' behavior. "
       "These codes can be configured with the Cheats Manager in the Tools menu."
       "<br><br>This setting cannot be changed while emulation is active."
-      "<br><br><dolphin_emphasis>If unsure, leave this unchecked.</dolphin_emphasis>");
+      "<br><br><dolphin_emphasis>If unsure, leave this checked.</dolphin_emphasis>");
   static constexpr char TR_OVERRIDE_REGION_SETTINGS_DESCRIPTION[] =
       QT_TR_NOOP("Lets you use languages and other region-related settings that the game may not "
                  "be designed for. May cause various crashes and bugs."
@@ -452,11 +435,11 @@ void GeneralPane::AddDescriptions()
 
   m_combobox_speedlimit->SetTitle(tr("Speed Limit"));
 
-  if (AutoUpdateChecker::SystemSupportsAutoUpdates())
+  /* if (AutoUpdateChecker::SystemSupportsAutoUpdates())
   {
     m_combobox_update_track->SetTitle(tr("Auto Update"));
     m_combobox_update_track->SetDescription(tr(TR_UPDATE_TRACK_DESCRIPTION));
-  }
+  } */ // disabled for P+ updater
 
   m_combobox_fallback_region->SetTitle(tr("Fallback Region"));
   m_combobox_fallback_region->SetDescription(tr(TR_FALLBACK_REGION_DESCRIPTION));

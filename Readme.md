@@ -1,3 +1,43 @@
+## Dolphin Extra
+Dolphin Extra incorporates aspects of [DolphinCS](https://github.com/JoeysRetroHandhelds/DolphinCS), [Better Wii Menu DE](https://github.com/Gavin-S-Dev/Better-Wii-Menu-DE), and **Project+ Dolphin**, but instead syncs to pull requests. All branding is removed and the apk is optionally spoofed to Game for Peace `com.tencent.tmgp.pubgmhd` for performance.
+Additionally Linux, macOS, and Windows builds of Dolphin Extra are also available.
+Better Wii Menu DE is also ported to Android using AI to replicate the behaviour in Qt UI.
+
+## Releases
+
+Releases are built here automatically whenever Dolphin merges a PR into master. This fork
+tracks upstream Dolphin's PR in form of virtual tags, not commits or release tags. See
+[Releases page](../../releases) for builds. It is also visible in my [catalog](https://sharath-5br2r.github.io/catalog) of all projects
+with more clarity and Obtainium Instructions for Android.
+
+## Attribution & Original Readmes
+
+<details>
+<summary>Project+ Dolphin Fork</summary>
+
+# Project+ Dolphin Fork
+
+![Untitled-1](https://github.com/user-attachments/assets/3bfb148a-85d1-489d-96ae-1b7892acdc11)
+
+This fork is a heavily modified version of the Dolphin Emulator designed for usage with Project+. It includes the following features:
+
+  * Branding, theming and iconography updates to match the Project+ aesthetic
+  * Netplay button on the toolbar
+  * Update button on the toolbar
+  * Specific aspect ratios (19:15 and 69:40 for regular and widescreen, respectively)
+  * Discord Rich Presence support for Project+
+  * Gamecube Adapter polling rate listed in controller settings
+  * Pre-configured hotkeys for volume up/down and opening netplay chat
+  * Automatic copying of netplay lobby code on netplay window startup
+  * 2 buffer as default netplay setting (equivalent to 4 in FPM)
+  * Separate Minimum and Player buffers in netplay window
+  * Client side music toggle in netplay window
+  * Spectator button in netplay window
+  * Automatic export of Brawl vault data at the end of netplay sessions
+  * Alternative implementation for automatic updates that fetch the latest GitHub release
+ 
+This project would not be possible without the work done by the [Faster Melee](https://github.com/FasterMelee/Ishiiruka), [Faster PM](https://github.com/jlambert360/Ishiiruka), [Slippi](https://github.com/project-slippi/dolphin), and [Mario Party Netplay](https://github.com/MarioPartyNetplay/Dolphin-MPN) teams. 
+
 # Dolphin - A GameCube and Wii Emulator
 
 [Homepage](https://dolphin-emu.org/) | [Project Site](https://github.com/dolphin-emu/dolphin) | [Buildbot](https://dolphin.ci/) | [Forums](https://forums.dolphin-emu.org/) | [Wiki](https://wiki.dolphin-emu.org/) | [GitHub Wiki](https://github.com/dolphin-emu/dolphin/wiki) | [Issue Tracker](https://bugs.dolphin-emu.org/projects/emulator/issues) | [Coding Style](https://github.com/dolphin-emu/dolphin/blob/master/Contributing.md) | [Transifex Page](https://app.transifex.com/dolphinemu/dolphin-emu/dashboard/) | [Analytics](https://mon.dolphin-emu.org/)
@@ -36,26 +76,109 @@ Please read the [FAQ](https://dolphin-emu.org/docs/faq/) before using Dolphin.
 
 Dolphin can only be installed on devices that satisfy the above requirements. Attempting to install on an unsupported device will fail and display an error message.
 
-## Building
+## Building for Windows
 
-You may find building instructions on the appropriate wiki page for your operating system:
+Use the solution file `Source/dolphin-emu.sln` to build Dolphin on Windows.
+Dolphin targets the latest MSVC shipped with Visual Studio or Build Tools.
+Other compilers might be able to build Dolphin on Windows but have not been
+tested and are not recommended to be used. Git and latest Windows SDK must be
+installed when building.
 
-* [Windows](https://github.com/dolphin-emu/dolphin/wiki/Building-for-Windows)
-* [Linux](https://github.com/dolphin-emu/dolphin/wiki/Building-for-Linux)
-* [macOS](https://github.com/dolphin-emu/dolphin/wiki/Building-for-macOS)
-* [Android](#android-specific-instructions) <!-- TODO: Create a "Building for Android" wiki page and link it here -->
-* [OpenBSD](https://github.com/dolphin-emu/dolphin/wiki/Building-for-OpenBSD) (unsupported)
-
-Before building, make sure to pull all submodules:
-
+Make sure to pull submodules before building:
 ```sh
 git submodule update --init --recursive
 ```
 
-### Android-specific instructions
+The "Release" solution configuration includes performance optimizations for the best user experience but complicates debugging Dolphin.
+The "Debug" solution configuration is significantly slower, more verbose and less permissive but makes debugging Dolphin easier.
+
+## Building for Linux and macOS
+
+Dolphin requires [CMake](https://cmake.org/) for systems other than Windows. 
+You need a recent version of GCC or Clang with decent c++20 support. CMake will
+inform you if your compiler is too old.
+Many libraries are bundled with Dolphin and used if they're not installed on 
+your system. CMake will inform you if a bundled library is used or if you need
+to install any missing packages yourself. You may refer to the [wiki](https://github.com/dolphin-emu/dolphin/wiki/Building-for-Linux) for more information.
+
+Make sure to pull submodules before building:
+```sh
+git submodule update --init --recursive
+```
+
+### macOS Build Steps:
+
+A binary supporting a single architecture can be built using the following steps: 
+
+1. `mkdir build`
+2. `cd build`
+3. `cmake ..`
+4. `make -j $(sysctl -n hw.logicalcpu)`
+
+An application bundle will be created in `./Binaries`.
+
+A script is also provided to build universal binaries supporting both x64 and ARM in the same
+application bundle using the following steps:
+
+1. `mkdir build`
+2. `cd build`
+3. `python ../BuildMacOSUniversalBinary.py`
+4. Universal binaries will be available in the `universal` folder
+
+Doing this is more complex as it requires installation of library dependencies for both x64 and ARM (or universal library
+equivalents) and may require specifying additional arguments to point to relevant library locations. 
+Execute BuildMacOSUniversalBinary.py --help for more details.  
+
+### Linux Global Build Steps:
+
+To install to your system.
+
+1. `mkdir build`
+2. `cd build`
+3. `cmake ..`
+4. `make -j $(nproc)`
+5. `sudo make install`
+
+### Linux Local Build Steps:
+
+Useful for development as root access is not required.
+
+1. `mkdir Build`
+2. `cd Build`
+3. `cmake .. -DLINUX_LOCAL_DEV=true`
+4. `make -j $(nproc)`
+5. `ln -s ../../Data/Sys Binaries/`
+
+### Linux Portable Build Steps:
+
+Can be stored on external storage and used on different Linux systems.
+Or useful for having multiple distinct Dolphin setups for testing/development/TAS.
+
+1. `mkdir Build`
+2. `cd Build`
+3. `cmake .. -DLINUX_LOCAL_DEV=true`
+4. `make -j $(nproc)`
+5. `cp -r ../Data/Sys/ ../Data/user/ ../Data/portable.txt Binaries/`
+
+
+### Linux AppImage Build Steps:
+
+Used for distribution of Project+ builds.
+
+1. `mkdir Build`
+2. `cd Build`
+3. `cmake .. -DLINUX_LOCAL_DEV=true -DCMAKE_INSTALL_PREFIX=/usr -GNinja`
+4. `../BuildLinuxAppImage.sh`
+
+## Building for Android
 
 These instructions assume familiarity with Android development. If you do not have an
 Android dev environment set up, see [AndroidSetup.md](AndroidSetup.md).
+
+Make sure to pull submodules before building:
+```sh
+git submodule update --init --recursive
+```
 
 If using Android Studio, import the Gradle project located in `./Source/Android`.
 
@@ -197,3 +320,71 @@ Options:
   -q, --quiet           Mute all messages except for errors.
   -g, --gameonly        Only extracts the DATA partition.
 ```
+
+</details>
+
+<details>
+<summary>DolphinCS</summary>
+DolphinCS is an unofficial fork of [Dolphin](https://github.com/dolphin-emu/dolphin), the
+GameCube/Wii emulator. It is **not affiliated with the Dolphin Emulator project**.
+
+The only thing this fork changes is **where Dolphin stores its user data on Android**. Everything
+else is identical to upstream Dolphin.
+
+## What's different
+
+A settings toggle lets you choose where Dolphin's user data (settings, saves, game paths, etc.)
+lives:
+
+- **Scoped Storage** (default, same as official Dolphin)
+- **Internal Storage** (`/sdcard/dolphin-emu`)
+- **SD Card**, if a removable card is detected
+
+Switching locations offers to migrate your existing data to the new location automatically.
+
+Nothing else is added, removed, or changed.
+
+## Releases
+
+Releases here are built automatically whenever Dolphin publishes a new stable release. This fork
+tracks upstream Dolphin's release tags, not individual commits or dev builds. See the
+[Releases page](https://github.com/JoeysRetroHandhelds/DolphinCS/releases) for builds.
+
+## License
+
+DolphinCS is licensed under the GNU GPL version 2 (or any later version), same as upstream
+Dolphin. See [COPYING](COPYING) for the full license text.
+
+</details>
+
+<details>
+<summary>Better Wii Menu - For Dolphin Emulator</summary>
+
+A custom Dolphin build that lets disc image files (.rvz, .iso, .wbfs, .gcz, .ciso, .wia) work as channels on the Wii System Menu.
+
+Switching between games has never been easier!
+### Features
+
+- Automatically syncs users' Dolphin game library with the Wii Menu
+
+- Switching between games is now possible with only the Wii Remote
+
+- Right-click or Hold(Android) any game in the Dolphin menu to manually add/remove games from the Wii Menu
+
+- Visually replicates the same experiences as if game files are .wad in Wii Menu
+
+### How to use
+
+#### Desktop
+
+1. Extract the zip
+2. Run `BetterWiiMenuDE.exe`
+3. Load up the Wii Menu or head straight into a game and enjoy easier game switching!
+
+#### Android
+
+1. Install the APK
+2. Open Dolphin
+3. Load up the Wii Menu or head straight into a game and enjoy easier game switching!
+
+</details>

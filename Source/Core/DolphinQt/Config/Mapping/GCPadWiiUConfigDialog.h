@@ -9,6 +9,7 @@ class QCheckBox;
 class QLabel;
 class QDialogButtonBox;
 class QVBoxLayout;
+class QTimer;
 
 class GCPadWiiUConfigDialog final : public QDialog
 {
@@ -30,6 +31,7 @@ private:
 
   QVBoxLayout* m_layout;
   QLabel* m_status_label;
+  QTimer* m_poll_rate_timer;
   QLabel* m_poll_rate_label;
   QDialogButtonBox* m_button_box;
 

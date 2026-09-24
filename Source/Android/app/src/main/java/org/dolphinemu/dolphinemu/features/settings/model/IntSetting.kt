@@ -171,11 +171,17 @@ enum class IntSetting(
         "BufferSizeClient",
         1
     ),
-    NETPLAY_BUFFER_SIZE(
+    NETPLAY_MINIMUM_BUFFER_SIZE(
         Settings.FILE_DOLPHIN,
         Settings.SECTION_INI_NETPLAY,
-        "BufferSize",
-        5
+        "MinimumBufferSize",
+        3
+    ),
+    NETPLAY_PLAYER_BUFFER_SIZE(
+        Settings.FILE_DOLPHIN,
+        Settings.SECTION_INI_NETPLAY,
+        "PlayerBufferSize",
+        3
     );
 
     override val isOverridden: Boolean
