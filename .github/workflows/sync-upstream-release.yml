@@ -139,10 +139,36 @@ jobs:
           git merge custom-patches --no-edit -m "Merge custom patches into upstream PR #${{ needs.check.outputs.pr_number }}"
           status=$?
           set -e
-          if [ $status -ne 0 ]; then
+          if [ $status -eq 0 ]; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Files the fork deliberately owns. Upstream editing them is expected and should never
+          # block a release: we always keep our side (our README, and the upstream policy docs we
+          # removed stay removed). Conflicts anywhere else are real and still fail the run.
+          FORK_OWNED=".github/workflows/sync-upstream-release.yml"
+          unresolved=""
+          for f in $(git diff --name-only --diff-filter=U); do
+            case " $FORK_OWNED " in
+              *" $f "*)
+                if git cat-file -e "HEAD:$f" 2>/dev/null; then
+                  git checkout --ours -- "$f" && git add -- "$f"
+                else
+                  git rm --quiet -- "$f"
+                fi
+                echo "Auto-resolved fork-owned file (kept ours): $f"
+                ;;
+              *) unresolved="$unresolved $f" ;;
+            esac
+          done
+
+          if [ -n "$unresolved" ]; then
+            echo "Unresolvable conflicts:$unresolved"
             git merge --abort || true
             echo "conflict=true" >> "$GITHUB_OUTPUT"
           else
+            git commit --no-edit
             echo "conflict=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -189,12 +215,14 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+        if: steps.merge.outputs.conflict == 'false'
+        uses: android-actions/setup-android@v3
         with:
-          packages: ''
+          # The action's default also installs the legacy 'tools' package, which Google removed
+          # from the SDK repository (sdkmanager: "Failed to find package 'tools'"). Nothing here
+          # uses it: Gradle fetches platforms/build-tools itself and the NDK is installed below.
+          packages: platform-tools
 
-      - name: Install Android build tools
-        run: sdkmanager "build-tools;35.0.0"
 
       - name: Install NDK
         run: sdkmanager "ndk;30.0.15729638"
