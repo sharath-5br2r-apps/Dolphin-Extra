@@ -215,7 +215,6 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
-        if: steps.merge.outputs.conflict == 'false'
         uses: android-actions/setup-android@v3
         with:
           # The action's default also installs the legacy 'tools' package, which Google removed
