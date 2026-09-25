@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,20 +18,33 @@ def apk_metadata(path):
         tools += sorted(Path(android_home).glob("build-tools/*/aapt2"), reverse=True)
         tools += sorted(Path(android_home).glob("build-tools/*/aapt"), reverse=True)
     tool = next((str(candidate) for candidate in tools if candidate), None)
-    if not tool:
-        return result
-    output = subprocess.run([tool, "dump", "badging", str(path)], capture_output=True,
-                            text=True, check=False).stdout
-    patterns = {
-        "min_sdk": r"(?:sdkVersion|minSdkVersion):'([^']+)'",
-        "version_code": r"versionCode='([^']+)'",
-        "densities": r"densities: '([^']+)'",
-        "native_libraries": r"native-code: '([^']+)'",
-    }
-    for key, pattern in patterns.items():
-        match = re.search(pattern, output)
-        if match:
-            result[key] = match.group(1).split() if key.endswith("s") else match.group(1)
+    if tool:
+        output = subprocess.run([tool, "dump", "badging", str(path)], capture_output=True,
+                                text=True, check=False).stdout
+        patterns = {
+            "min_sdk": r"(?:sdkVersion|minSdkVersion):'([^']+)'",
+            "version_code": r"versionCode='([^']+)'",
+            "densities": r"densities: '([^']+)'",
+            "native_libraries": r"native-code: '([^']+)'",
+        }
+        for key, pattern in patterns.items():
+            match = re.search(pattern, output)
+            if match:
+                result[key] = match.group(1).split() if key.endswith("s") else match.group(1)
+
+    # Fallback to inspecting APK zip structure for native libraries
+    if not result["native_libraries"] and path.exists() and zipfile.is_zipfile(path):
+        try:
+            with zipfile.ZipFile(path, "r") as z:
+                libs = set()
+                for name in z.namelist():
+                    if name.startswith("lib/") and "/" in name[4:]:
+                        libs.add(name.split("/")[1])
+                if libs:
+                    result["native_libraries"] = sorted(list(libs))
+        except Exception:
+            pass
+
     return result
 
 
@@ -83,11 +97,15 @@ def main():
                 "publishedAt": now,
             }
             if is_apk:
+                densities = apk.get("densities") or asset.get("densities") or []
+                native_libs = apk.get("native_libraries") or asset.get("native_libraries") or []
+                min_sdk = apk.get("min_sdk") or asset.get("min_sdk") or None
+                version_code = apk.get("version_code") or asset.get("version_code") or None
                 record.update({
-                    "densities": apk.get("densities", []),
-                    "nativeLibraries": apk.get("native_libraries", []),
-                    "minSdk": apk.get("min_sdk"),
-                    "versionCode": apk.get("version_code"),
+                    "densities": densities,
+                    "nativeLibraries": native_libs,
+                    "minSdk": min_sdk,
+                    "versionCode": version_code,
                 })
             files[filename] = {key: value for key, value in record.items() if value is not None and value != []}
     manifest = {"schema": 1, "kind": "build",

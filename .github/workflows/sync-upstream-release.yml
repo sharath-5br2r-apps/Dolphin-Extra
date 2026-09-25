@@ -215,7 +215,6 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
-        if: steps.merge.outputs.conflict == 'false'
         uses: android-actions/setup-android@v3
         with:
           # The action's default also installs the legacy 'tools' package, which Google removed
@@ -344,18 +343,48 @@ jobs:
           ${{ matrix.build_cmd }}
 
       - name: "Prepare Windows Artifact Structure"
-        shell: cmd
+        shell: powershell
         working-directory: ${{ github.workspace }}
         run: |
-          if exist .\Binary\${{ matrix.bin_dir }}\ (
-            Xcopy /Y /E /I .\Data\Sys .\Binary\${{ matrix.bin_dir }}\Sys
-            cd .\Binary\${{ matrix.bin_dir }}\
-          ) else (
-            Xcopy /Y /E /I .\Data\Sys .\Binary\Sys
-            cd .\Binary\
+          # Locate built binary directory
+          $BIN_PATH = ""
+          $CANDIDATES = @(
+            "${{ github.workspace }}\build\release\${{ matrix.bin_dir }}\Binaries",
+            "${{ github.workspace }}\build\release\${{ matrix.bin_dir }}",
+            "${{ github.workspace }}\Binary\${{ matrix.bin_dir }}",
+            "${{ github.workspace }}\Binary"
           )
-          fsutil file createnew FIX-VCRUNTIME140-ERROR.txt 0
-          echo Download and install this: https://aka.ms/vs/17/release/vc_redist.${{ matrix.vc_redist_arch }}.exe > .\FIX-VCRUNTIME140-ERROR.txt
+          foreach ($cand in $CANDIDATES) {
+            if (Test-Path "$cand\Dolphin.exe") {
+              $BIN_PATH = $cand
+              break
+            }
+          }
+          if (-not $BIN_PATH) {
+            foreach ($cand in $CANDIDATES) {
+              if (Test-Path $cand) {
+                $BIN_PATH = $cand
+                break
+              }
+            }
+          }
+          if (-not $BIN_PATH) {
+            Write-Error "Could not locate built binary directory!"
+            exit 1
+          }
+          Write-Host "Found binary directory at: $BIN_PATH"
+
+          # Ensure Sys directory is copied into the binary directory if not already present
+          if (-not (Test-Path "$BIN_PATH\Sys")) {
+            Copy-Item -Recurse -Force "Data\Sys" "$BIN_PATH\Sys"
+          }
+
+          # Create FIX-VCRUNTIME140-ERROR.txt
+          $FIX_FILE = "$BIN_PATH\FIX-VCRUNTIME140-ERROR.txt"
+          "Download and install this: https://aka.ms/vs/17/release/vc_redist.${{ matrix.vc_redist_arch }}.exe" | Out-File -Encoding ascii $FIX_FILE
+
+          # Save detected path for subsequent packaging step
+          echo "BIN_PATH=$BIN_PATH" >> $env:GITHUB_ENV
 
       - name: "Package Windows Dolphin (${{ matrix.arch }})"
         shell: powershell
@@ -368,10 +397,10 @@ jobs:
           $ARTIFACT_DIR = "${{ github.workspace }}\artifact"
           New-Item -ItemType Directory -Force -Path $ARTIFACT_DIR | Out-Null
 
-          # Locate built binary directory
-          $BIN_PATH = ".\Binary\${{ matrix.bin_dir }}"
-          if (-not (Test-Path $BIN_PATH)) {
-            $BIN_PATH = ".\Binary"
+          $BIN_PATH = $env:BIN_PATH
+          if (-not $BIN_PATH -or -not (Test-Path $BIN_PATH)) {
+            Write-Error "Binary directory $BIN_PATH not found!"
+            exit 1
           }
 
           # Prepare Zip Portable Package
@@ -394,12 +423,12 @@ jobs:
           # Prepare NSIS Setup Installer Package
           if (Get-Command makensis -ErrorAction SilentlyContinue) {
             $ABS_BIN_PATH = (Resolve-Path $BIN_PATH -ErrorAction SilentlyContinue).Path
-            if (-not $ABS_BIN_PATH) {
-              $ABS_BIN_PATH = "${{ github.workspace }}\Binary\${{ matrix.bin_dir }}"
-            }
+            $NSIS_ARCH = "${{ matrix.bin_dir }}".ToLower()
             Push-Location "Distribution\Windows"
-            makensis /DDOLPHIN_ARCH=${{ matrix.bin_dir }} /DPRODUCT_VERSION=vpr${PR_NUM} /DBINARY_SOURCE_DIR="$ABS_BIN_PATH" Installer.nsi
-            if (Test-Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe") {
+            makensis /DDOLPHIN_ARCH=$NSIS_ARCH /DPRODUCT_VERSION=vpr${PR_NUM} /DBINARY_SOURCE_DIR="$ABS_BIN_PATH" Installer.nsi
+            if (Test-Path "dolphin-${NSIS_ARCH}-vpr${PR_NUM}.exe") {
+              Move-Item -Path "dolphin-${NSIS_ARCH}-vpr${PR_NUM}.exe" -Destination "$ARTIFACT_DIR\$EXE_NAME" -Force
+            } elseif (Test-Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe") {
               Move-Item -Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe" -Destination "$ARTIFACT_DIR\$EXE_NAME" -Force
             }
             Pop-Location
@@ -965,7 +994,7 @@ jobs:
 
       - name: Convert build.json to release manifest
         env:
-          NEXT_VER_CODE: ${{ needs.check.outputs.release_name }}
+          NEXT_VER_CODE: ${{ steps.version.outputs.NEXT_VER_CODE }}
           IS_PRERELEASE: "false"
         run: python3 .github/workflows/scripts/generate_build_manifest.py
 
