@@ -77,7 +77,7 @@ class NetplayViewModel(
     )
     val networkMode = _networkMode.asStateFlow()
 
-    private val _buffer = MutableStateFlow(IntSetting.NETPLAY_BUFFER_SIZE.int)
+    private val _buffer = MutableStateFlow(IntSetting.NETPLAY_MINIMUM_BUFFER_SIZE.int)
     val buffer = _buffer.asStateFlow()
 
     private val _clientBuffer = MutableStateFlow(IntSetting.NETPLAY_CLIENT_BUFFER_SIZE.int)
@@ -157,7 +157,7 @@ class NetplayViewModel(
 
     fun setBuffer(value: Int) {
         _buffer.value = value
-        IntSetting.NETPLAY_BUFFER_SIZE.setInt(NativeConfig.LAYER_BASE, value)
+        IntSetting.NETPLAY_MINIMUM_BUFFER_SIZE.setInt(NativeConfig.LAYER_BASE, value)
         netplaySession.adjustServerPadBufferSize(value)
     }
 
