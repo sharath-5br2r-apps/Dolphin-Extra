@@ -30,9 +30,11 @@ void OnScreenDisplayPane::CreateLayout()
   general_box->setLayout(general_layout);
 
   m_enable_osd = new ConfigBool(tr("Show Messages"), Config::MAIN_OSD_MESSAGES);
+  m_checkbox_adapter_warning = new ConfigBool(tr("Show Adapter Poll Rate Warning"), Config::MAIN_SHOW_ADAPTER_WARNING);
   m_font_size = new ConfigInteger(12, 40, Config::MAIN_OSD_FONT_SIZE);
 
   general_layout->addWidget(m_enable_osd, 0, 0);
+  general_layout->addWidget(m_checkbox_adapter_warning, 0, 1);
   general_layout->addWidget(new QLabel(tr("Font Size:")), 1, 0);
   m_font_size->SetTitle(tr("Font Size"));
   general_layout->addWidget(m_font_size, 1, 1);
@@ -142,6 +144,13 @@ void OnScreenDisplayPane::AddDescriptions()
       QT_TR_NOOP("Shows on-screen display messages over the render window. These messages "
                  "disappear after several seconds."
                  "<br><br><dolphin_emphasis>If unsure, leave this checked.</dolphin_emphasis>");
+  static constexpr char TR_ADAPTER_WARNING_DESCRIPTION[] = QT_TR_NOOP(
+      "This setting makes Dolphin warn and show a message when inputs are being read at a reduced "
+      "rate when an adapter problem is detected."
+      " This should only occur when your adapter returns something other than LIBUSB_SUCCESS."
+      " Before turning this off, try reinstalling drivers and switching USB ports."
+      "<br><br><dolphin_emphasis>If unsure, leave this checked.</dolphin_emphasis>");
+
   static const char TR_OSD_FONT_SIZE_DESCRIPTION[] = QT_TR_NOOP(
       "Changes the font size of the On-Screen Display. Affects features such as performance "
       "statistics, frame counter, and netplay chat."
@@ -226,6 +235,7 @@ void OnScreenDisplayPane::AddDescriptions()
                  "unchecked.</dolphin_emphasis>");
 
   m_enable_osd->SetDescription(tr(TR_ENABLE_OSD_DESCRIPTION));
+  m_checkbox_adapter_warning->SetDescription(tr(TR_ADAPTER_WARNING_DESCRIPTION));
   m_font_size->SetDescription(tr(TR_OSD_FONT_SIZE_DESCRIPTION));
 
   m_show_fps->SetDescription(tr(TR_SHOW_FPS_DESCRIPTION));
