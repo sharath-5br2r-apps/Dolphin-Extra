@@ -39,8 +39,12 @@ extern const Info<std::string> NETPLAY_INDEX_PASSWORD;
 extern const Info<bool> NETPLAY_ENABLE_CHUNKED_UPLOAD_LIMIT;
 extern const Info<u32> NETPLAY_CHUNKED_UPLOAD_LIMIT;
 
-extern const Info<u32> NETPLAY_BUFFER_SIZE;
+extern const Info<u32> NETPLAY_MINIMUM_BUFFER_SIZE;
+extern const Info<u32> NETPLAY_PLAYER_BUFFER_SIZE;
 extern const Info<u32> NETPLAY_CLIENT_BUFFER_SIZE;
+
+extern const Info<bool> NETPLAY_BRAWL_MUSIC_OFF;
+extern const Info<bool> NETPLAY_SPECTATOR_MODE;
 
 extern const Info<bool> NETPLAY_SAVEDATA_LOAD;
 extern const Info<bool> NETPLAY_SAVEDATA_WRITE;
