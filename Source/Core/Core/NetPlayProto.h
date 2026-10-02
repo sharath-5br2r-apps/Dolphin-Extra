@@ -62,6 +62,7 @@ struct NetSettings
   float oc_factor = 0;
   bool vi_oc_enable = false;
   float vi_oc_factor = 0;
+  bool spectator_mode = false;
   Common::EnumMap<ExpansionInterface::EXIDeviceType, ExpansionInterface::MAX_SLOT> exi_device{};
   int memcard_size_override = -1;
 
@@ -168,11 +169,13 @@ enum class MessageID : u8
   ChunkedDataComplete = 0x44,
   ChunkedDataAbort = 0x45,
 
+  PadSpectator = 0x5F,
   PadData = 0x60,
   PadMapping = 0x61,
-  PadBuffer = 0x62,
+  PadBufferMinimum = 0x62,
   PadHostData = 0x63,
   GBAConfig = 0x64,
+  PadBufferPlayer = 0x66,
 
   WiimoteData = 0x70,
   WiimoteMapping = 0x71,

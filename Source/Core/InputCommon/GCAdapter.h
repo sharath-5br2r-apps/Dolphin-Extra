@@ -28,4 +28,7 @@ void ResetDeviceType(int chan);
 // Callable from any thread. Returns 0 when the adapter is not detected.
 double GetCurrentPollRate();
 
+
+bool IsReadingAtReducedRate(); 
+
 }  // namespace GCAdapter
