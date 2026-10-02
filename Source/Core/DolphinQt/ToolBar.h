@@ -28,10 +28,13 @@ signals:
   void StopPressed();
   void FullScreenPressed();
   void ScreenShotPressed();
+  void NetPlaySetupDialogPressed();
 
   void SettingsPressed();
   void ControllersPressed();
   void GraphicsPressed();
+  
+  void InstallUpdateManuallyPressed();
 
   void StepPressed();
   void StepOverPressed();
@@ -57,6 +60,8 @@ private:
   QAction* m_config_action;
   QAction* m_controllers_action;
   QAction* m_graphics_action;
+  QAction* m_netplay_setup_action;
+  QAction* m_updater_action;
 
   QAction* m_step_action;
   QAction* m_step_over_action;
