@@ -215,7 +215,7 @@ void UpdateDiscordPresence(int party_size, SecretType type, const std::string& s
   if (game_artwork.empty())
   {
     discord_presence.largeImageKey = "dolphin_logo";
-    discord_presence.largeImageText = "Dolphin is an emulator for the GameCube and the Wii.";
+    discord_presence.largeImageText = "Dolphin Emulator";
   }
   else
   {
@@ -224,7 +224,10 @@ void UpdateDiscordPresence(int party_size, SecretType type, const std::string& s
     discord_presence.smallImageKey = "dolphin_logo";
     discord_presence.smallImageText = "Dolphin is an emulator for the GameCube and the Wii.";
   }
-  discord_presence.details = title.empty() ? "Not in-game" : title.c_str();
+  if (title.empty())
+    discord_presence.details = "Not in-game";
+  else
+    discord_presence.details = title.c_str();
   if (reset_timer)
   {
     s_start_timestamp = std::chrono::duration_cast<std::chrono::seconds>(
