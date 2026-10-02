@@ -39,7 +39,9 @@ public:
   void OnMsgPowerButton() override;
   void OnPlayerConnect(const std::string& player) override;
   void OnPlayerDisconnect(const std::string& player) override;
-  void OnPadBufferChanged(u32 buffer) override;
+  void OnMinimumPadBufferChanged(u32 buffer) override;
+  void OnPlayerPadBufferChanged(u32 buffer) override;
+  bool IsSpectator() override;
   void OnHostInputAuthorityChanged(bool enabled) override;
   void OnDesync(u32 frame, const std::string& player) override;
   void OnConnectionLost() override;
