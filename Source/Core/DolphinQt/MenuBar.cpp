@@ -46,6 +46,7 @@
 #include "Core/PowerPC/SignatureDB/SignatureDB.h"
 #include "Core/State.h"
 #include "Core/System.h"
+#include "Core/WiiForwarder.h"
 #include "Core/WiiUtils.h"
 
 #include "DiscIO/Enums.h"
@@ -66,6 +67,7 @@
 
 #include "UICommon/AutoUpdate.h"
 #include "UICommon/GameFile.h"
+#include <qprocess.h>
 
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 #include <rcheevos/include/rc_client_raintegration.h>
@@ -328,9 +330,11 @@ void MenuBar::AddToolsMenu()
 
   // Label will be set by a NANDRefresh later
   m_boot_sysmenu = tools_menu->addAction(QString{}, this, [this] { emit BootWiiSystemMenu(); });
-  m_wad_install_action = tools_menu->addAction(tr("Install &WAD..."), this, &MenuBar::InstallWAD);
-  m_manage_nand_menu = tools_menu->addMenu(tr("Manage &NAND"));
-  m_import_backup = m_manage_nand_menu->addAction(tr("Import &BootMii NAND Backup..."), this,
+  m_wad_install_action = tools_menu->addAction(tr("Install WAD..."), this, &MenuBar::InstallWAD);
+  m_disc_to_wii_menu_action = tools_menu->addAction(tr("Add Disc Image to Wii Menu..."), this,
+                                                     &MenuBar::InstallDiscImageToWiiMenu);
+  m_manage_nand_menu = tools_menu->addMenu(tr("Manage NAND"));
+  m_import_backup = m_manage_nand_menu->addAction(tr("Import BootMii NAND Backup..."), this,
                                                   [this] { emit ImportNANDBackup(); });
   m_check_nand = m_manage_nand_menu->addAction(tr("Check &NAND..."), this, &MenuBar::CheckNAND);
   m_extract_certificates = m_manage_nand_menu->addAction(tr("Extract &Certificates from NAND"),
@@ -656,16 +660,6 @@ void MenuBar::AddOptionsMenu()
   m_change_font = options_menu->addAction(tr("&Font..."), this, &MenuBar::ChangeDebugFont);
 }
 
-void MenuBar::InstallUpdateManually()
-{
-  const std::string autoupdate_track = Config::Get(Config::MAIN_AUTOUPDATE_UPDATE_TRACK);
-  const std::string manual_track = autoupdate_track.empty() ? "dev" : autoupdate_track;
-  auto* const updater = new Updater(this->parentWidget(), manual_track,
-                                    Config::Get(Config::MAIN_AUTOUPDATE_HASH_OVERRIDE));
-
-  updater->CheckForUpdate();
-}
-
 void MenuBar::AddHelpMenu()
 {
   QMenu* help_menu = addMenu(tr("&Help"));
@@ -673,31 +667,19 @@ void MenuBar::AddHelpMenu()
   QAction* website = help_menu->addAction(tr("&Website"));
   connect(website, &QAction::triggered, this,
           [] { QDesktopServices::openUrl(QUrl(QStringLiteral("https://dolphin-emu.org/"))); });
-  QAction* documentation = help_menu->addAction(tr("Online &Documentation"));
-  connect(documentation, &QAction::triggered, this, [] {
-    QDesktopServices::openUrl(QUrl(QStringLiteral("https://dolphin-emu.org/docs/guides")));
-  });
   QAction* github = help_menu->addAction(tr("&GitHub Repository"));
   connect(github, &QAction::triggered, this, [] {
-    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/dolphin-emu/dolphin")));
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/sharath-5br2r-apps/Dolphin-Extra")));
   });
-  QAction* bugtracker = help_menu->addAction(tr("&Bug Tracker"));
-  connect(bugtracker, &QAction::triggered, this, [] {
-    QDesktopServices::openUrl(
-        QUrl(QStringLiteral("https://bugs.dolphin-emu.org/projects/emulator")));
-  });
-
-  if (AutoUpdateChecker::SystemSupportsAutoUpdates())
-  {
-    help_menu->addSeparator();
-
-    help_menu->addAction(tr("&Check for Updates..."), this, &MenuBar::InstallUpdateManually);
-  }
 
 #ifndef __APPLE__
   help_menu->addSeparator();
 #endif
 
+  #ifdef SHOW_UPDATER
+  QAction* updaterCheck = help_menu->addAction(tr("Check For &Updates"));
+  connect(updaterCheck, &QAction::triggered, this, &MenuBar::ShowUpdateDialog);
+#endif  // SHOW_UPDATER
   help_menu->addAction(tr("&About"), this, &MenuBar::ShowAboutDialog);
 }
 
@@ -1118,6 +1100,7 @@ void MenuBar::UpdateToolsMenu(const Core::State state)
   m_pal_ipl->setEnabled(is_uninitialized && File::Exists(Config::GetBootROMPath(EUR_DIR)));
   m_dev_ipl->setEnabled(is_uninitialized && File::Exists(Config::GetBootROMPath(DEV_DIR)));
   m_wad_install_action->setEnabled(is_uninitialized);
+  m_disc_to_wii_menu_action->setEnabled(is_uninitialized);
   m_import_backup->setEnabled(is_uninitialized);
   m_check_nand->setEnabled(is_uninitialized);
   m_import_wii_save->setEnabled(is_uninitialized);
@@ -1208,6 +1191,30 @@ void MenuBar::InstallWAD()
   else
   {
     ModalMessageBox::critical(this, tr("Failure"), tr("Failed to install this title to the NAND."));
+  }
+}
+
+void MenuBar::InstallDiscImageToWiiMenu()
+{
+  QString disc_file = DolphinFileDialog::getOpenFileName(
+      this, tr("Select Wii Disc Image to Add to Wii Menu"), QString(),
+      tr("Wii Disc Images (*.rvz *.iso *.wbfs *.gcz *.ciso *.wia);;All Files (*)"));
+
+  if (disc_file.isEmpty())
+    return;
+
+  if (WiiForwarder::InstallForwarder(disc_file.toStdString()))
+  {
+    Settings::Instance().NANDRefresh();
+    ModalMessageBox::information(
+        this, tr("Success"),
+        tr("Successfully added this game to the Wii Menu.\n"
+           "It will appear as a channel when you boot the Wii System Menu."));
+  }
+  else
+  {
+    ModalMessageBox::critical(this, tr("Failure"),
+                              tr("Failed to add this game to the Wii Menu."));
   }
 }
 

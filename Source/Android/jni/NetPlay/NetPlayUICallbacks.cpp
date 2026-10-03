@@ -208,12 +208,25 @@ void NetPlayUICallbacks::OnPlayerDisconnect(const std::string&)
 {
 }
 
-void NetPlayUICallbacks::OnPadBufferChanged(u32 buffer)
+void NetPlayUICallbacks::OnMinimumPadBufferChanged(u32 buffer)
 {
   WithSession([&](JNIEnv* env, jobject session) {
     env->CallVoidMethod(session, IDCache::GetNetplayOnPadBufferChanged(),
                         static_cast<jint>(buffer));
   });
+}
+
+void NetPlayUICallbacks::OnPlayerPadBufferChanged(u32 buffer)
+{
+  WithSession([&](JNIEnv* env, jobject session) {
+    env->CallVoidMethod(session, IDCache::GetNetplayOnPadBufferChanged(),
+                        static_cast<jint>(buffer));
+  });
+}
+
+bool NetPlayUICallbacks::IsSpectator()
+{
+  return false;
 }
 
 void NetPlayUICallbacks::OnHostInputAuthorityChanged(bool enabled)
