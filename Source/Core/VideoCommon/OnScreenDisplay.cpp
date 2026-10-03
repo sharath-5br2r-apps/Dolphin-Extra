@@ -156,8 +156,8 @@ void DrawMessages()
 {
   const bool draw_messages = Config::Get(Config::MAIN_OSD_MESSAGES);
   const float current_x =
-      LEFT_MARGIN * ImGui::GetIO().DisplayFramebufferScale.x + s_obscured_pixels_left;
-  float current_y = TOP_MARGIN * ImGui::GetIO().DisplayFramebufferScale.y + s_obscured_pixels_top;
+      (LEFT_MARGIN + 100.0f) * ImGui::GetIO().DisplayFramebufferScale.x + s_obscured_pixels_left;
+  float current_y = (TOP_MARGIN - 2.5f) * ImGui::GetIO().DisplayFramebufferScale.y + s_obscured_pixels_top;
   int index = 0;
 
   std::lock_guard lock{s_messages_mutex};

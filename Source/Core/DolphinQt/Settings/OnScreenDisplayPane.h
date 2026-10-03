@@ -21,6 +21,7 @@ private:
 
   // General
   ConfigBool* m_enable_osd;
+  ConfigBool* m_checkbox_adapter_warning;
   ConfigInteger* m_font_size;
 
   // Performance
