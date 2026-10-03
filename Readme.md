@@ -331,6 +331,8 @@ GameCube/Wii emulator. It is **not affiliated with the Dolphin Emulator project*
 The only thing this fork changes is **where Dolphin stores its user data on Android**. Everything
 else is identical to upstream Dolphin.
 
+AI was used for the entire project.
+
 ## What's different
 
 A settings toggle lets you choose where Dolphin's user data (settings, saves, game paths, etc.)
