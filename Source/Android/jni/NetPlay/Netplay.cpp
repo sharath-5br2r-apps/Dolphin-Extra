@@ -93,11 +93,32 @@ Java_org_dolphinemu_dolphinemu_features_netplay_NetplaySession_nativeAdjustClien
 }
 
 JNIEXPORT void JNICALL
+Java_org_dolphinemu_dolphinemu_features_netplay_NetplaySession_nativeAdjustPlayerPadBufferSize(
+    JNIEnv* env, jobject obj, jint buffer)
+{
+  if (auto* client = GetClientPointer(env, obj))
+    client->AdjustPlayerPadBufferSize(static_cast<u32>(buffer));
+}
+
+JNIEXPORT void JNICALL
 Java_org_dolphinemu_dolphinemu_features_netplay_NetplaySession_nativeAdjustServerPadBufferSize(
     JNIEnv* env, jobject obj, jint buffer)
 {
   if (auto* server = GetServerPointer(env, obj))
     server->AdjustMinimumPadBufferSize(static_cast<u32>(buffer));
+}
+
+JNIEXPORT void JNICALL
+Java_org_dolphinemu_dolphinemu_features_netplay_NetplaySession_nativeSetSpectator(
+    JNIEnv* env, jobject obj, jboolean enabled)
+{
+  if (auto* client = GetClientPointer(env, obj))
+  {
+    sf::Packet packet;
+    packet << static_cast<u8>(NetPlay::MessageID::PadSpectator);
+    packet << static_cast<bool>(enabled);
+    client->SendAsync(std::move(packet));
+  }
 }
 
 JNIEXPORT jlong JNICALL

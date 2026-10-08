@@ -1095,4 +1095,8 @@ It can efficiently compress both junk data and encrypted Wii data.
     <string name="netplay_address_share">Share address</string>
     <string name="netplay_address_retry">Retry</string>
     <string name="netplay_transfer_progress">%1$s/%2$s MiB</string>
+    <string name="netplay_brawl_music_off">Client Side Music Off</string>
+    <string name="netplay_spectator_mode">Spectator</string>
+    <string name="netplay_minimum_buffer">Minimum buffer</string>
+    <string name="netplay_player_buffer">Player buffer</string>
 </resources>

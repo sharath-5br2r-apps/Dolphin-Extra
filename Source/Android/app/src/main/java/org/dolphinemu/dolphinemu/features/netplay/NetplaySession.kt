@@ -178,7 +178,11 @@ class NetplaySession(
 
     fun adjustClientPadBufferSize(buffer: Int) = nativeAdjustClientPadBufferSize(buffer)
 
+    fun adjustPlayerPadBufferSize(buffer: Int) = nativeAdjustPlayerPadBufferSize(buffer)
+
     fun adjustServerPadBufferSize(buffer: Int) = nativeAdjustServerPadBufferSize(buffer)
+
+    fun setSpectator(enabled: Boolean) = nativeSetSpectator(enabled)
 
     fun changeGame(gameFile: GameFile) = nativeChangeGame(gameFile)
 
@@ -268,7 +272,11 @@ class NetplaySession(
 
     private external fun nativeAdjustClientPadBufferSize(buffer: Int)
 
+    private external fun nativeAdjustPlayerPadBufferSize(buffer: Int)
+
     private external fun nativeAdjustServerPadBufferSize(buffer: Int)
+
+    private external fun nativeSetSpectator(enabled: Boolean)
 
     private external fun nativeReleaseUICallbacks(pointer: Long)
 

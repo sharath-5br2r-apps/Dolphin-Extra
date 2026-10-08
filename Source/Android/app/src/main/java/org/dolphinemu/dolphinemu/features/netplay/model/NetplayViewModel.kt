@@ -80,8 +80,17 @@ class NetplayViewModel(
     private val _buffer = MutableStateFlow(IntSetting.NETPLAY_MINIMUM_BUFFER_SIZE.int)
     val buffer = _buffer.asStateFlow()
 
+    private val _playerBuffer = MutableStateFlow(IntSetting.NETPLAY_PLAYER_BUFFER_SIZE.int)
+    val playerBuffer = _playerBuffer.asStateFlow()
+
     private val _clientBuffer = MutableStateFlow(IntSetting.NETPLAY_CLIENT_BUFFER_SIZE.int)
     val clientBuffer = _clientBuffer.asStateFlow()
+
+    private val _spectatorMode = MutableStateFlow(BooleanSetting.NETPLAY_SPECTATOR_MODE.boolean)
+    val spectatorMode = _spectatorMode.asStateFlow()
+
+    private val _brawlMusicOff = MutableStateFlow(BooleanSetting.NETPLAY_BRAWL_MUSIC_OFF.boolean)
+    val brawlMusicOff = _brawlMusicOff.asStateFlow()
 
     val gameFiles = GameFileCacheManager.getGameFiles().asFlow()
         .map { it.toList() }
@@ -161,10 +170,27 @@ class NetplayViewModel(
         netplaySession.adjustServerPadBufferSize(value)
     }
 
+    fun setPlayerBuffer(value: Int) {
+        _playerBuffer.value = value
+        IntSetting.NETPLAY_PLAYER_BUFFER_SIZE.setInt(NativeConfig.LAYER_BASE, value)
+        netplaySession.adjustPlayerPadBufferSize(value)
+    }
+
     fun setClientBuffer(value: Int) {
         _clientBuffer.value = value
         IntSetting.NETPLAY_CLIENT_BUFFER_SIZE.setInt(NativeConfig.LAYER_BASE, value)
         netplaySession.adjustClientPadBufferSize(value)
+    }
+
+    fun setSpectatorMode(enabled: Boolean) {
+        _spectatorMode.value = enabled
+        BooleanSetting.NETPLAY_SPECTATOR_MODE.setBoolean(NativeConfig.LAYER_BASE, enabled)
+        netplaySession.setSpectator(enabled)
+    }
+
+    fun setBrawlMusicOff(enabled: Boolean) {
+        _brawlMusicOff.value = enabled
+        BooleanSetting.NETPLAY_BRAWL_MUSIC_OFF.setBoolean(NativeConfig.LAYER_BASE, enabled)
     }
 
     fun changeGame(gameFile: GameFile) {

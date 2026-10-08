@@ -144,8 +144,14 @@ fun NetplayScreen(
     onNetworkModeChanged: (NetworkMode) -> Unit,
     buffer: Int,
     onBufferChanged: (Int) -> Unit,
+    playerBuffer: Int,
+    onPlayerBufferChanged: (Int) -> Unit,
     clientBuffer: Int,
     onClientBufferChanged: (Int) -> Unit,
+    spectatorMode: Boolean,
+    onSpectatorModeChanged: (Boolean) -> Unit,
+    brawlMusicOff: Boolean,
+    onBrawlMusicOffChanged: (Boolean) -> Unit,
     players: List<Player>,
     saveTransferProgress: SaveTransferProgress?,
     gameDigestProgress: GameDigestProgress?,
@@ -217,8 +223,14 @@ fun NetplayScreen(
                 onNetworkModeChanged = onNetworkModeChanged,
                 buffer = buffer,
                 onBufferChanged = onBufferChanged,
+                playerBuffer = playerBuffer,
+                onPlayerBufferChanged = onPlayerBufferChanged,
                 clientBuffer = clientBuffer,
                 onClientBufferChanged = onClientBufferChanged,
+                spectatorMode = spectatorMode,
+                onSpectatorModeChanged = onSpectatorModeChanged,
+                brawlMusicOff = brawlMusicOff,
+                onBrawlMusicOffChanged = onBrawlMusicOffChanged,
                 joinAddresses = joinAddresses,
                 selectedJoinInfoType = selectedJoinInfoType,
                 onSelectedJoinInfoTypeChanged = { selectedJoinInfoType = it },
@@ -249,8 +261,14 @@ fun NetplayScreen(
                 onNetworkModeChanged = onNetworkModeChanged,
                 buffer = buffer,
                 onBufferChanged = onBufferChanged,
+                playerBuffer = playerBuffer,
+                onPlayerBufferChanged = onPlayerBufferChanged,
                 clientBuffer = clientBuffer,
                 onClientBufferChanged = onClientBufferChanged,
+                spectatorMode = spectatorMode,
+                onSpectatorModeChanged = onSpectatorModeChanged,
+                brawlMusicOff = brawlMusicOff,
+                onBrawlMusicOffChanged = onBrawlMusicOffChanged,
                 joinAddresses = joinAddresses,
                 selectedJoinInfoType = selectedJoinInfoType,
                 onSelectedJoinInfoTypeChanged = { selectedJoinInfoType = it },
@@ -393,8 +411,14 @@ private fun PortraitContent(
     onNetworkModeChanged: (NetworkMode) -> Unit,
     buffer: Int,
     onBufferChanged: (Int) -> Unit,
+    playerBuffer: Int,
+    onPlayerBufferChanged: (Int) -> Unit,
     clientBuffer: Int,
     onClientBufferChanged: (Int) -> Unit,
+    spectatorMode: Boolean,
+    onSpectatorModeChanged: (Boolean) -> Unit,
+    brawlMusicOff: Boolean,
+    onBrawlMusicOffChanged: (Boolean) -> Unit,
     joinAddresses: Map<JoinInfoType, JoinAddress>,
     selectedJoinInfoType: JoinInfoType,
     onSelectedJoinInfoTypeChanged: (JoinInfoType) -> Unit,
@@ -437,8 +461,14 @@ private fun PortraitContent(
             onNetworkModeChanged = onNetworkModeChanged,
             buffer = buffer,
             onBufferChanged = onBufferChanged,
+            playerBuffer = playerBuffer,
+            onPlayerBufferChanged = onPlayerBufferChanged,
             clientBuffer = clientBuffer,
             onClientBufferChanged = onClientBufferChanged,
+            spectatorMode = spectatorMode,
+            onSpectatorModeChanged = onSpectatorModeChanged,
+            brawlMusicOff = brawlMusicOff,
+            onBrawlMusicOffChanged = onBrawlMusicOffChanged,
             isHosting = isHosting,
             joinAddresses = joinAddresses,
             selectedJoinInfoType = selectedJoinInfoType,
@@ -476,8 +506,14 @@ private fun LandscapeContent(
     onNetworkModeChanged: (NetworkMode) -> Unit,
     buffer: Int,
     onBufferChanged: (Int) -> Unit,
+    playerBuffer: Int,
+    onPlayerBufferChanged: (Int) -> Unit,
     clientBuffer: Int,
     onClientBufferChanged: (Int) -> Unit,
+    spectatorMode: Boolean,
+    onSpectatorModeChanged: (Boolean) -> Unit,
+    brawlMusicOff: Boolean,
+    onBrawlMusicOffChanged: (Boolean) -> Unit,
     joinAddresses: Map<JoinInfoType, JoinAddress>,
     selectedJoinInfoType: JoinInfoType,
     onSelectedJoinInfoTypeChanged: (JoinInfoType) -> Unit,
@@ -531,8 +567,14 @@ private fun LandscapeContent(
                 onNetworkModeChanged = onNetworkModeChanged,
                 buffer = buffer,
                 onBufferChanged = onBufferChanged,
+                playerBuffer = playerBuffer,
+                onPlayerBufferChanged = onPlayerBufferChanged,
                 clientBuffer = clientBuffer,
                 onClientBufferChanged = onClientBufferChanged,
+                spectatorMode = spectatorMode,
+                onSpectatorModeChanged = onSpectatorModeChanged,
+                brawlMusicOff = brawlMusicOff,
+                onBrawlMusicOffChanged = onBrawlMusicOffChanged,
                 isHosting = isHosting,
                 joinAddresses = joinAddresses,
                 selectedJoinInfoType = selectedJoinInfoType,
@@ -566,8 +608,14 @@ private fun PlayersAndSettings(
     onNetworkModeChanged: (NetworkMode) -> Unit,
     buffer: Int,
     onBufferChanged: (Int) -> Unit,
+    playerBuffer: Int,
+    onPlayerBufferChanged: (Int) -> Unit,
     clientBuffer: Int,
     onClientBufferChanged: (Int) -> Unit,
+    spectatorMode: Boolean,
+    onSpectatorModeChanged: (Boolean) -> Unit,
+    brawlMusicOff: Boolean,
+    onBrawlMusicOffChanged: (Boolean) -> Unit,
     isHosting: Boolean,
     joinAddresses: Map<JoinInfoType, JoinAddress>,
     selectedJoinInfoType: JoinInfoType,
@@ -623,7 +671,17 @@ private fun PlayersAndSettings(
             BufferInput(
                 value = buffer,
                 onValueChange = onBufferChanged,
-                label = stringResource(R.string.netplay_buffer),
+                label = stringResource(R.string.netplay_minimum_buffer),
+            )
+        }
+
+        if (!hostInputAuthorityEnabled) {
+            MenuSpacer()
+
+            BufferInput(
+                value = playerBuffer,
+                onValueChange = onPlayerBufferChanged,
+                label = stringResource(R.string.netplay_player_buffer),
             )
         }
 
@@ -634,6 +692,38 @@ private fun PlayersAndSettings(
                 value = clientBuffer,
                 onValueChange = onClientBufferChanged,
                 label = stringResource(R.string.netplay_client_buffer),
+            )
+        }
+
+        MenuSpacer()
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Checkbox(
+                checked = spectatorMode,
+                onCheckedChange = onSpectatorModeChanged,
+            )
+            Text(
+                text = stringResource(R.string.netplay_spectator_mode),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Checkbox(
+                checked = brawlMusicOff,
+                onCheckedChange = onBrawlMusicOffChanged,
+            )
+            Text(
+                text = stringResource(R.string.netplay_brawl_music_off),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(start = 8.dp)
             )
         }
     }
@@ -1694,8 +1784,14 @@ private fun PreviewNetplayScreen() {
         onNetworkModeChanged = {},
         buffer = 5,
         onBufferChanged = {},
+        playerBuffer = 5,
+        onPlayerBufferChanged = {},
         clientBuffer = 10,
         onClientBufferChanged = {},
+        spectatorMode = false,
+        onSpectatorModeChanged = {},
+        brawlMusicOff = false,
+        onBrawlMusicOffChanged = {},
         saveTransferProgress = null,
         gameDigestProgress = null,
         joinAddresses = mapOf(
