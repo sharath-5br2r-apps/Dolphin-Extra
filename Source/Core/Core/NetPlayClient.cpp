@@ -789,24 +789,38 @@ void NetPlayClient::OnPadBufferMinimum(sf::Packet& packet)
 {
   u32 size = 0;
   packet >> size;
-  
+
+  if (size > MAX_TARGET_PAD_BUFFER_SIZE)
+  {
+    WARN_LOG_FMT(NETPLAY, "Ignoring invalid pad buffer size {}.", size);
+    return;
+  }
+
   m_minimum_buffer_size = size;
-    m_dialog->OnMinimumPadBufferChanged(size);
+  m_dialog->OnMinimumPadBufferChanged(size);
 
-    if (m_local_player->buffer < m_minimum_buffer_size)
-      AdjustPlayerPadBufferSize(m_minimum_buffer_size);
+  if (m_local_player->buffer < m_minimum_buffer_size)
+    AdjustPlayerPadBufferSize(m_minimum_buffer_size);
 }
-
 
 void NetPlayClient::OnPadBufferPlayer(sf::Packet& packet)
 {
-    PlayerId pid;
-    packet >> pid;
+  PlayerId pid;
+  packet >> pid;
 
-    {
-      std::lock_guard<std::recursive_mutex> lkp(m_crit.players);
-      packet >> m_players[pid].buffer;
-    }
+  u32 buffer = 0;
+  packet >> buffer;
+
+  if (buffer > MAX_TARGET_PAD_BUFFER_SIZE)
+  {
+    WARN_LOG_FMT(NETPLAY, "Ignoring invalid pad buffer size {}.", buffer);
+    return;
+  }
+
+  {
+    std::lock_guard<std::recursive_mutex> lkp(m_crit.players);
+    m_players[pid].buffer = buffer;
+  }
 }
 
 void NetPlayClient::OnHostInputAuthority(sf::Packet& packet)
