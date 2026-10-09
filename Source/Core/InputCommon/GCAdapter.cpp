@@ -226,17 +226,29 @@ static void ReadThreadFunc()
     std::array<u8, CONTROLLER_INPUT_PAYLOAD_EXPECTED_SIZE> input_buffer;
 
     int payload_size = 0;
-    const auto transfer_start = std::chrono::steady_clock::now();
+
+    // P+ change: for poll rate display
+    std::chrono::high_resolution_clock::time_point start =
+        std::chrono::high_resolution_clock::now();
     int transfer_return_code =
         libusb_interrupt_transfer(s_handle, s_endpoint_in, input_buffer.data(),
                                   int(input_buffer.size()), &payload_size, USB_TIMEOUT_MS);
-    const double elapsed_ms =
-        std::chrono::duration<double, std::milli>(
-            std::chrono::steady_clock::now() - transfer_start).count();
+
+    // P+ change: for poll rate display
+    std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+
+    double elapsed_ms =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count() / 1000000.0;
+
     if (elapsed_ms > 15.0)
+    {
       s_consecutive_slow_transfers++;
+    }
     else
+    {
       s_consecutive_slow_transfers = 0;
+    }
+
     if (transfer_return_code == LIBUSB_SUCCESS)
     {
       ProcessInputPayload(input_buffer.data(), payload_size);
@@ -285,13 +297,13 @@ static void ReadThreadFunc()
     // Update poll rate measurement.
     if (++poll_rate_measurement_count == POLL_RATE_MEASUREMENT_SAMPLE_COUNT)
     {
-      const auto now = Clock::now();
+      const auto clock_now = Clock::now();
 
       const auto poll_rate =
-          POLL_RATE_MEASUREMENT_SAMPLE_COUNT / DT_s(now - poll_rate_measurement_start_time).count();
+          POLL_RATE_MEASUREMENT_SAMPLE_COUNT / DT_s(clock_now - poll_rate_measurement_start_time).count();
       s_adapter_poll_rate.store(poll_rate, std::memory_order_relaxed);
 
-      poll_rate_measurement_start_time = now;
+      poll_rate_measurement_start_time = clock_now;
       poll_rate_measurement_count = 0;
     }
   }
@@ -480,17 +492,6 @@ static void ScanThreadFunc()
 
     s_hotplug_event.Wait();
   }
-#endif
-
-#if GCADAPTER_USE_LIBUSB_IMPLEMENTATION
-#if LIBUSB_API_HAS_HOTPLUG
-  if (s_libusb_hotplug_enabled)
-    libusb_hotplug_deregister_callback(*s_libusb_context, s_hotplug_handle);
-#endif
-#elif GCADAPTER_USE_ANDROID_IMPLEMENTATION
-  const jmethodID disable_hotplug_callback_func =
-      env->GetStaticMethodID(s_adapter_class, "disableHotplugCallback", "()V");
-  env->CallStaticVoidMethod(s_adapter_class, disable_hotplug_callback_func);
 #endif
 
   NOTICE_LOG_FMT(CONTROLLERINTERFACE, "GC Adapter scanning thread stopped");
@@ -781,6 +782,17 @@ static void AddGCAdapter(libusb_device* device)
 void Shutdown()
 {
   StopScanThread();
+#if GCADAPTER_USE_LIBUSB_IMPLEMENTATION
+#if LIBUSB_API_HAS_HOTPLUG
+  if (s_libusb_context && s_libusb_context->IsValid() && s_libusb_hotplug_enabled)
+    libusb_hotplug_deregister_callback(*s_libusb_context, s_hotplug_handle);
+#endif
+#elif GCADAPTER_USE_ANDROID_IMPLEMENTATION
+  JNIEnv* const env = IDCache::GetEnvForThread();
+  const jmethodID disable_hotplug_callback_func =
+      env->GetStaticMethodID(s_adapter_class, "disableHotplugCallback", "()V");
+  env->CallStaticVoidMethod(s_adapter_class, disable_hotplug_callback_func);
+#endif
   Reset();
 
 #if GCADAPTER_USE_LIBUSB_IMPLEMENTATION

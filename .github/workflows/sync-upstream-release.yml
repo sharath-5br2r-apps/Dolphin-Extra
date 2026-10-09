@@ -90,6 +90,9 @@ jobs:
     needs: check
     if: ${{ needs.check.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version_info.outputs.version }}
+      release_tag: ${{ steps.version_info.outputs.release_tag }}
     steps:
       - name: Checkout feature branch
         uses: actions/checkout@v4
@@ -184,6 +187,16 @@ jobs:
       - name: Push master branch
         run: git push origin master --force
 
+      - name: Compute release version metadata
+        id: version_info
+        run: |
+          SHORT_HASH=$(git rev-parse --short=10 HEAD)
+          VERSION="2609-$SHORT_HASH"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Computed version: $VERSION"
+          echo "Computed release tag: v$VERSION"
+
 
   # ==========================================
   # 3A. DOWNSTREAM BUILD JOB - ANDROID
@@ -239,7 +252,7 @@ jobs:
       - name: Build release APK
         working-directory: Source/Android
         run: |
-          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          VERSION="${{ needs.sync.outputs.version }}"
           chmod +x gradlew
 
           ./gradlew :app:assembleRelease --no-daemon \
@@ -253,7 +266,7 @@ jobs:
           FOUND_APK=$(find app/build/outputs/apk -type f -name "*.apk" ! -name "*unaligned*" | head -n 1)
 
           if [ -n "$FOUND_APK" ]; then
-            mv "$FOUND_APK" "../../artifact/dolphin-extra-android-vpr${PR_NUM}-all.apk"
+            mv "$FOUND_APK" "../../artifact/dolphin-extra-android-${VERSION}-all.apk"
           else
             echo "Failed to locate APK!"
             exit 1
@@ -390,9 +403,9 @@ jobs:
         shell: powershell
         working-directory: ${{ github.workspace }}
         run: |
-          $PR_NUM = "${{ needs.check.outputs.pr_number }}"
-          $ZIP_NAME = "dolphin-extra-windows-vpr${PR_NUM}-${{ matrix.arch }}.zip"
-          $EXE_NAME = "dolphin-extra-windows-installer-vpr${PR_NUM}-${{ matrix.arch }}.exe"
+          $VERSION = "${{ needs.sync.outputs.version }}"
+          $ZIP_NAME = "dolphin-extra-windows-${VERSION}-${{ matrix.arch }}.zip"
+          $EXE_NAME = "dolphin-extra-windows-installer-${VERSION}-${{ matrix.arch }}.exe"
 
           $ARTIFACT_DIR = "${{ github.workspace }}\artifact"
           New-Item -ItemType Directory -Force -Path $ARTIFACT_DIR | Out-Null
@@ -425,11 +438,11 @@ jobs:
             $ABS_BIN_PATH = (Resolve-Path $BIN_PATH -ErrorAction SilentlyContinue).Path
             $NSIS_ARCH = "${{ matrix.bin_dir }}".ToLower()
             Push-Location "Distribution\Windows"
-            makensis /DDOLPHIN_ARCH=$NSIS_ARCH /DPRODUCT_VERSION=vpr${PR_NUM} /DBINARY_SOURCE_DIR="$ABS_BIN_PATH" Installer.nsi
-            if (Test-Path "dolphin-${NSIS_ARCH}-vpr${PR_NUM}.exe") {
-              Move-Item -Path "dolphin-${NSIS_ARCH}-vpr${PR_NUM}.exe" -Destination "$ARTIFACT_DIR\$EXE_NAME" -Force
-            } elseif (Test-Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe") {
-              Move-Item -Path "dolphin-${{ matrix.bin_dir }}-vpr${PR_NUM}.exe" -Destination "$ARTIFACT_DIR\$EXE_NAME" -Force
+            makensis /DDOLPHIN_ARCH=$NSIS_ARCH /DPRODUCT_VERSION=${VERSION} /DBINARY_SOURCE_DIR="$ABS_BIN_PATH" Installer.nsi
+            if (Test-Path "dolphin-${NSIS_ARCH}-${VERSION}.exe") {
+              Move-Item -Path "dolphin-${NSIS_ARCH}-${VERSION}.exe" -Destination "$ARTIFACT_DIR\$EXE_NAME" -Force
+            } elseif (Test-Path "dolphin-${{ matrix.bin_dir }}-${VERSION}.exe") {
+              Move-Item -Path "dolphin-${{ matrix.bin_dir }}-${VERSION}.exe" -Destination "$ARTIFACT_DIR\$EXE_NAME" -Force
             }
             Pop-Location
           } else {
@@ -502,8 +515,8 @@ jobs:
       - name: "Package Linux Dolphin (${{ matrix.arch }})"
         working-directory: ${{ github.workspace }}
         run: |
-          PR_NUM="${{ needs.check.outputs.pr_number }}"
-          FILE_NAME="dolphin-extra-linux-vpr${PR_NUM}-${{ matrix.arch }}.zip"
+          VERSION="${{ needs.sync.outputs.version }}"
+          FILE_NAME="dolphin-extra-linux-${VERSION}-${{ matrix.arch }}.zip"
 
           mkdir -p artifact
           cd build/Binaries
@@ -648,12 +661,12 @@ jobs:
       - name: Prepare Build Artifacts
         id: create-artifact
         run: |
-          PR_NUM="${{ needs.check.outputs.pr_number }}"
+          VERSION="${{ needs.sync.outputs.version }}"
           lipo -create build/Binaries/DolphinQt.app/Contents/MacOS/DolphinQt \
                        build-arm/Binaries/DolphinQt.app/Contents/MacOS/DolphinQt \
                        -o dolphin-universal
           mv dolphin-universal build/Binaries/DolphinQt.app/Contents/MacOS/DolphinQt
-          APPNAME="dolphin-extra-macos-vpr${PR_NUM}-universal"
+          APPNAME="dolphin-extra-macos-${VERSION}-universal"
           mv build/Binaries/DolphinQt.app "${APPNAME}.app"
           tar --options xz:compression-level=9 -cvJf "${APPNAME}.tar.xz" "${APPNAME}.app"
           mkdir -p artifact
@@ -748,8 +761,8 @@ jobs:
       - name: Package Dolphin-AppImage
         run: |
           ARCH="${{ matrix.arch }}"
-          PR_NUM="${{ needs.check.outputs.pr_number }}"
-          FILE_NAME="dolphin-extra-linux-vpr${PR_NUM}-${ARCH}.AppImage"
+          VERSION="${{ needs.sync.outputs.version }}"
+          FILE_NAME="dolphin-extra-linux-${VERSION}-${ARCH}.AppImage"
 
           cd /tmp
           curl -sSfLO "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${ARCH}.AppImage"
@@ -793,7 +806,7 @@ jobs:
   # 4. RELEASE JOB (Uses Upstream Tag & Title Naming)
   # ==========================================
   release:
-    needs: [check, android, windows, linux, macos, appimage]
+    needs: [check, sync, android, windows, linux, macos, appimage]
     if: always() && (needs.android.result == 'success' || needs.windows.result == 'success' || needs.linux.result == 'success' || needs.macos.result == 'success' || needs.appimage.result == 'success')
     runs-on: ubuntu-latest
     steps:
@@ -1001,7 +1014,7 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "${{ needs.check.outputs.release_tag }}"
+          tag_name: "${{ needs.sync.outputs.release_tag }}"
           name: "${{ needs.check.outputs.release_name }}"
           target_commitish: master
           prerelease: false
@@ -1012,6 +1025,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tag sync marker
+        if: github.event_name != 'workflow_dispatch'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
