@@ -191,11 +191,11 @@ jobs:
         id: version_info
         run: |
           SHORT_HASH=$(git rev-parse --short=10 HEAD)
-          VERSION="2609-$SHORT_HASH"
+          VERSION="v2609-$SHORT_HASH"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "release_tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Computed version: $VERSION"
-          echo "Computed release tag: v$VERSION"
+          echo "Computed release tag: $VERSION"
 
 
   # ==========================================
