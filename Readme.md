@@ -7,7 +7,7 @@ Better Wii Menu DE is also ported to Android using AI to replicate the behaviour
 
 Releases are built here automatically whenever Dolphin merges a PR into master. This fork
 tracks upstream Dolphin's PR in form of virtual tags, not commits or release tags. See
-[Releases page](../../releases) for builds. It is also visible in my [catalog](https://sharath-5br2r.github.io/catalog) of all projects
+[Releases page](../../releases) for builds. It is also visible in my [catalog](https://sharath-5br2r.github.io/apps) of all projects
 with more clarity and Obtainium Instructions for Android.
 
 ## Note

@@ -109,7 +109,7 @@ modules:
       - /share/man
     sources:
       - type: git
-        url: https://github.com/sharath-5br2r-apps/Dolphin-Extra
+        url: https://github.com/sharath-5br2r/Dolphin-Extra
         branch: master
         disable-submodules: false
       - type: file

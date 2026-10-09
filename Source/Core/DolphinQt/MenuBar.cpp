@@ -669,7 +669,7 @@ void MenuBar::AddHelpMenu()
           [] { QDesktopServices::openUrl(QUrl(QStringLiteral("https://dolphin-emu.org/"))); });
   QAction* github = help_menu->addAction(tr("&GitHub Repository"));
   connect(github, &QAction::triggered, this, [] {
-    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/sharath-5br2r-apps/Dolphin-Extra")));
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/sharath-5br2r/Dolphin-Extra")));
   });
 
 #ifndef __APPLE__
