@@ -259,7 +259,7 @@ jobs:
             -Pkeystore="$RUNNER_TEMP/dolphincs-release.p12" \
             -Pstorepass="${{ secrets.KEYSTORE_PASSWORD }}" \
             -Pkeyalias="${{ vars.KEYSTORE_ALIAS }}" \
-            -Pkeypass="${{ secrets.KEYSTORE_KEY_PASSWORD }}"
+            -Pkeypass="${{ secrets.KEYSTORE_KEY_PASSWORD || secrets.KEYSTORE_PASSWORD }}"
 
           mkdir -p ../../artifact
 

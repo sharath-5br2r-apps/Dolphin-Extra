@@ -57,7 +57,8 @@ android {
                 storeFile = file(project.property("keystore")!!)
                 storePassword = project.property("storepass").toString()
                 keyAlias = project.property("keyalias").toString()
-                keyPassword = project.property("keypass").toString()
+                keyPassword = (project.findProperty("keypass")?.toString()?.takeIf { it.isNotBlank() }
+                    ?: project.property("storepass").toString())
                 storeType = "PKCS12"
             }
         }
